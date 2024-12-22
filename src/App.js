@@ -1,110 +1,150 @@
+// src/App.js
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { useAuth } from './context/AuthContext';
-import AuthTabs from './components/auth/AuthTabs';
-import Home from './pages/Home';
+import { AuthProvider } from './context/AuthContext';
+import PrivateRoute from './components/PrivateRoute';
+import Login from './pages/Login';
 import FamilyTree from './pages/FamilyTree';
-import ProtectedRoute from './components/auth/ProtectedRoute';
-import UserProfile from './components/profile/UserProfile';
 import FamilyMemories from './pages/FamilyMemories';
-import { familyService } from './services/familyService';
-import ClaimInvite from './pages/ClaimInvite';
+import Profile from './pages/Profile';
+import MemberProfilePage from './pages/MemberProfilePage';
+import { useAuth } from './context/AuthContext';
+import { useNavigate } from 'react-router-dom';
+import EmailConfirmation from './pages/EmailConfirmation';
 
-
-function App() {
+function Navigation() {
   const { user, logout } = useAuth();
-  const [family, setFamily] = React.useState(null);
-  const [loadingFamily, setLoadingFamily] = React.useState(true);
+  const navigate = useNavigate();
 
-  // Similar to how we do in FamilyTree to getOrCreate family
-  React.useEffect(() => {
-    async function loadFamily() {
-      if (user) {
-        const f = await familyService.getOrCreateFamily(`${user.email}'s Family`);
-        setFamily(f);
-      }
-      setLoadingFamily(false);
+  const handleLogout = async () => {
+    try {
+      await logout();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
     }
-    loadFamily();
-  }, [user]);
-
-  if (loadingFamily) return <div>Loading...</div>;
+  };
 
   return (
-    <Router>
-      <div className="min-h-screen bg-gray-100">
-        <nav className="bg-white shadow-lg">
-          <div className="max-w-6xl mx-auto px-4">
-            <div className="flex justify-between items-center h-16">
-              <div className="flex items-center space-x-8">
-                <Link to="/" className="text-xl font-bold text-gray-800">
-                  Family Legacy Connection
-                </Link>
-                {user && (
-                  <>
-                    <Link to="/family-tree" className="text-gray-600 hover:text-gray-900">
-                      Family Tree
-                    </Link>
-                    <Link to="/memories" className="text-gray-600 hover:text-gray-900">
-                      Memories
-                    </Link>
-                    <Link to="/profile" className="text-gray-600 hover:text-gray-900">
-                      Profile
-                    </Link>
-                  </>
-                )}
-              </div>
-              <div>
-                {user ? (
-                  <div className="flex items-center space-x-4">
-                    <span className="text-gray-600">Welcome, {user.name}</span>
-                    <button 
-                      onClick={logout}
-                      className="bg-red-500 text-white px-4 py-2 rounded-lg hover:bg-red-600"
-                    >
-                      Logout
-                    </button>
-                  </div>
-                ) : (
-                  <Link 
-                    to="/auth" 
-                    className="bg-blue-500 text-white px-4 py-2 rounded-lg hover:bg-blue-600"
-                  >
-                    Login / Register
-                  </Link>
-                )}
-              </div>
+    <nav className="bg-white shadow-lg">
+      <div className="max-w-7xl mx-auto px-4">
+        <div className="flex justify-between h-16">
+          <div className="flex">
+            <div className="flex-shrink-0 flex items-center">
+              <Link to="/" className="text-xl font-bold text-blue-600">
+                Family Legacy Connection
+              </Link>
             </div>
+            {user && (
+              <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
+                <Link
+                  to="/family-tree"
+                  className="inline-flex items-center px-1 pt-1 text-gray-900 hover:text-blue-600"
+                >
+                  Family Tree
+                </Link>
+                <Link
+                  to="/memories"
+                  className="inline-flex items-center px-1 pt-1 text-gray-900 hover:text-blue-600"
+                >
+                  Memories
+                </Link>
+                <Link
+                  to="/profile"
+                  className="inline-flex items-center px-1 pt-1 text-gray-900 hover:text-blue-600"
+                >
+                  Profile
+                </Link>
+              </div>
+            )}
           </div>
-        </nav>
-        <main className="max-w-6xl mx-auto mt-8 px-4">
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/auth" element={<AuthTabs />} />
-            <Route path="/family-tree" element={
-              <ProtectedRoute>
-                {/* Make sure you pass the family's id to FamilyTree */}
-                {family && <FamilyTree familyId={family.id} />}
-              </ProtectedRoute>
-            } />
-            <Route path="/memories" element={
-              <ProtectedRoute>
-                {family && <FamilyMemories familyId={family.id} />}
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <UserProfile />
-              </ProtectedRoute>
-            } />
-            <Route path="/claim-invite" element={
-              <ProtectedRoute> {/* If you want only logged-in users to access */}
-                <ClaimInvite />
-              </ProtectedRoute>
-            }/>
-          </Routes>
-        </main>
+          <div className="flex items-center">
+            {user ? (
+              <div className="flex items-center space-x-4">
+                <span className="text-gray-700">Welcome, {user.email}</span>
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                >
+                  Logout
+                </button>
+              </div>
+            ) : (
+              <Link
+                to="/login"
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              >
+                Login
+              </Link>
+            )}
+          </div>
+        </div>
       </div>
+    </nav>
+  );
+}
+
+function App() {
+  return (
+    <Router>
+      <AuthProvider>
+        <div className="min-h-screen bg-gray-100">
+          <Navigation />
+          <main className="py-10">
+            <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/family-tree"
+                  element={
+                    <PrivateRoute>
+                      <FamilyTree />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/memories"
+                  element={
+                    <PrivateRoute>
+                      <FamilyMemories />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <PrivateRoute>
+                      <Profile />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/family-member/:memberId"
+                  element={
+                    <PrivateRoute>
+                      <MemberProfilePage />
+                    </PrivateRoute>
+                  }
+                />
+                <Route
+                  path="/"
+                  element={
+                    <div className="text-center">
+                      <h1 className="text-4xl font-bold text-gray-900 mb-4">
+                        Welcome to Family Legacy Connection
+                      </h1>
+                      <p className="text-xl text-gray-600">
+                        Connect with your family, share memories, and build your family tree together.
+                      </p>
+                    </div>
+                  }
+                />
+                <Route path="/email-confirmation" element={<EmailConfirmation />} />
+              </Routes>
+            </div>
+          </main>
+        </div>
+      </AuthProvider>
     </Router>
   );
 }

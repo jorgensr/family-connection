@@ -5,6 +5,8 @@ import { useNavigate } from 'react-router-dom';
 function RegisterForm() {
   const { register, error } = useAuth();
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState(null);
   const [formData, setFormData] = useState({
     firstName: '',
     lastName: '',
@@ -17,14 +19,39 @@ function RegisterForm() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (formData.password !== formData.confirmPassword) {
-      alert("Passwords don't match");
-      return;
-    }
-    
-    const success = await register(formData);
-    if (success) {
-      navigate('/family-tree');
+    setFormError(null);
+    setLoading(true);
+
+    try {
+      if (formData.password !== formData.confirmPassword) {
+        setFormError("Passwords don't match");
+        return;
+      }
+
+      console.log('Submitting registration form:', { ...formData, password: '***' });
+      
+      const success = await register(formData);
+      console.log('Registration result:', success);
+
+      if (success) {
+        if (error?.includes('check your email')) {
+          // Show email confirmation message
+          setFormError('Please check your email to confirm your account before logging in.');
+          setTimeout(() => {
+            navigate('/login');
+          }, 3000);
+        } else {
+          // Direct login successful
+          navigate('/family-tree');
+        }
+      } else {
+        setFormError('Registration failed. Please try again.');
+      }
+    } catch (err) {
+      console.error('Form submission error:', err);
+      setFormError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -32,9 +59,9 @@ function RegisterForm() {
     <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Create Account</h2>
       
-      {error && (
+      {(error || formError) && (
         <div className="bg-red-100 text-red-700 p-3 rounded mb-4">
-          {error}
+          {error || formError}
         </div>
       )}
 
@@ -132,9 +159,12 @@ function RegisterForm() {
 
         <button
           type="submit"
-          className="w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200"
+          disabled={loading}
+          className={`w-full bg-blue-500 text-white py-2 px-4 rounded-lg hover:bg-blue-600 transition duration-200 ${
+            loading ? 'opacity-50 cursor-not-allowed' : ''
+          }`}
         >
-          Create Account
+          {loading ? 'Creating Account...' : 'Create Account'}
         </button>
       </form>
     </div>

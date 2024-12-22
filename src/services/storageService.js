@@ -1,21 +1,24 @@
 import { supabase } from '../config/supabase';
 
 export const storageService = {
-  async uploadFile(file, familyId, memberId) {
+  async uploadFile(file, folder, fileName) {
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${familyId}/${memberId}/${Date.now()}.${fileExt}`;
-
       const { data, error } = await supabase.storage
-        .from('family-media')
-        .upload(fileName, file);
+        .from('memories')
+        .upload(`${folder}/${fileName}`, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error uploading file:', error);
+        throw error;
+      }
 
-      // Get public URL for the file
+      // Get the public URL for the uploaded file
       const { data: { publicUrl } } = supabase.storage
-        .from('family-media')
-        .getPublicUrl(fileName);
+        .from('memories')
+        .getPublicUrl(`${folder}/${fileName}`);
 
       return publicUrl;
     } catch (error) {
@@ -27,7 +30,7 @@ export const storageService = {
   async deleteFile(filePath) {
     try {
       const { error } = await supabase.storage
-        .from('family-media')
+        .from('memories')
         .remove([filePath]);
 
       if (error) throw error;
