@@ -1,6 +1,227 @@
 // src/services/familyService.js
 import { supabase } from '../config/supabase';
 
+// Helper function to infer relationships
+const inferRelationships = async (familyId, newMember, directRelation) => {
+  const inferredRelations = [];
+  
+  // Get all existing family members and relationships
+  const { data: existingMembers } = await supabase
+    .from('family_members')
+    .select('*')
+    .eq('family_id', familyId);
+
+  const { data: existingRelations } = await supabase
+    .from('family_relationships')
+    .select('*')
+    .eq('family_id', familyId);
+
+  // Infer siblings if parent relationship is being added
+  if (directRelation.relationship_type === 'parent') {
+    const siblings = existingMembers.filter(member =>
+      existingRelations.some(rel =>
+        rel.relationship_type === 'child' &&
+        rel.member1_id === directRelation.member1_id &&
+        rel.member2_id === member.id &&
+        member.id !== newMember.id
+      )
+    );
+
+    siblings.forEach(sibling => {
+      inferredRelations.push({
+        family_id: familyId,
+        member1_id: newMember.id,
+        member2_id: sibling.id,
+        relationship_type: 'sibling'
+      });
+    });
+  }
+
+  // Infer grandchildren if parent relationship is being added
+  if (directRelation.relationship_type === 'parent') {
+    const children = existingMembers.filter(member =>
+      existingRelations.some(rel =>
+        rel.relationship_type === 'child' &&
+        rel.member1_id === directRelation.member2_id &&
+        rel.member2_id === member.id
+      )
+    );
+
+    children.forEach(child => {
+      inferredRelations.push({
+        family_id: familyId,
+        member1_id: newMember.id,
+        member2_id: child.id,
+        relationship_type: 'grandparent'
+      });
+    });
+  }
+
+  // Infer in-laws if spouse relationship is being added
+  if (directRelation.relationship_type === 'spouse') {
+    const spouseParents = existingMembers.filter(member =>
+      existingRelations.some(rel =>
+        rel.relationship_type === 'parent' &&
+        rel.member1_id === member.id &&
+        rel.member2_id === directRelation.member2_id
+      )
+    );
+
+    spouseParents.forEach(parent => {
+      inferredRelations.push({
+        family_id: familyId,
+        member1_id: newMember.id,
+        member2_id: parent.id,
+        relationship_type: 'in-law'
+      });
+    });
+  }
+
+  return inferredRelations;
+};
+
+// Update addFamilyMember function to include relationship inference
+const addFamilyMember = async (newMember) => {
+  try {
+    // Start a Supabase transaction
+    const { data: member, error: memberError } = await supabase
+      .from('family_members')
+      .insert([{
+        family_id: newMember.familyId,
+        first_name: newMember.firstName,
+        last_name: newMember.lastName,
+        birth_date: newMember.birthDate,
+        profile_picture_url: newMember.profilePictureUrl
+      }])
+      .select()
+      .single();
+
+    if (memberError) throw memberError;
+
+    // Create the direct relationship
+    const directRelation = {
+      family_id: newMember.familyId,
+      member1_id: newMember.relatedMemberId,
+      member2_id: member.id,
+      relationship_type: newMember.relationshipType
+    };
+
+    // Add direct relationship
+    const { error: relationError } = await supabase
+      .from('family_relationships')
+      .insert([directRelation]);
+
+    if (relationError) throw relationError;
+
+    // Infer and add additional relationships
+    const inferredRelations = await inferRelationships(
+      newMember.familyId,
+      member,
+      directRelation
+    );
+
+    if (inferredRelations.length > 0) {
+      const { error: inferredError } = await supabase
+        .from('family_relationships')
+        .insert(inferredRelations);
+
+      if (inferredError) throw inferredError;
+    }
+
+    // Add reciprocal relationships
+    const reciprocalRelations = [];
+
+    // Add reciprocal direct relationship
+    reciprocalRelations.push({
+      family_id: newMember.familyId,
+      member1_id: member.id,
+      member2_id: newMember.relatedMemberId,
+      relationship_type: getReciprocalRelationType(newMember.relationshipType)
+    });
+
+    // Add reciprocal inferred relationships
+    inferredRelations.forEach(rel => {
+      reciprocalRelations.push({
+        family_id: rel.family_id,
+        member1_id: rel.member2_id,
+        member2_id: rel.member1_id,
+        relationship_type: getReciprocalRelationType(rel.relationship_type)
+      });
+    });
+
+    if (reciprocalRelations.length > 0) {
+      const { error: reciprocalError } = await supabase
+        .from('family_relationships')
+        .insert(reciprocalRelations);
+
+      if (reciprocalError) throw reciprocalError;
+    }
+
+    return {
+      member,
+      directRelation,
+      inferredRelations,
+      reciprocalRelations
+    };
+  } catch (error) {
+    console.error('Error adding family member:', error);
+    throw error;
+  }
+};
+
+// Helper function to get reciprocal relationship type
+const getReciprocalRelationType = (relationType) => {
+  switch (relationType) {
+    case 'parent': return 'child';
+    case 'child': return 'parent';
+    case 'spouse': return 'spouse';
+    case 'sibling': return 'sibling';
+    case 'grandparent': return 'grandchild';
+    case 'grandchild': return 'grandparent';
+    case 'in-law': return 'in-law';
+    default: return relationType;
+  }
+};
+
+// Update the previewMemberAddition function to use the existingMembers and existingRelations
+const previewMemberAddition = async (newMember) => {
+  try {
+    // Create a mock member object for inference
+    const mockMember = {
+      id: 'preview-member',
+      family_id: newMember.familyId,
+      first_name: newMember.firstName,
+      last_name: newMember.lastName,
+      birth_date: newMember.birthDate
+    };
+
+    // Create the direct relationship
+    const directRelation = {
+      family_id: newMember.familyId,
+      member1_id: newMember.relatedMemberId,
+      member2_id: mockMember.id,
+      relationship_type: newMember.relationshipType
+    };
+
+    // Infer relationships
+    const inferredRelations = await inferRelationships(
+      newMember.familyId,
+      mockMember,
+      directRelation
+    );
+
+    // Return preview data
+    return {
+      member: mockMember,
+      directRelation,
+      inferredRelations
+    };
+  } catch (error) {
+    console.error('Error previewing member addition:', error);
+    throw error;
+  }
+};
+
 export const familyService = {
   async getOrCreateFamily(name) {
     try {
@@ -38,7 +259,7 @@ export const familyService = {
     try {
       const { data, error } = await supabase
         .from('family_members')
-        .select('*')
+        .select('*, user_id, is_claimed')
         .eq('family_id', familyId);
 
       if (error) throw error;
@@ -60,75 +281,6 @@ export const familyService = {
       return data || [];
     } catch (error) {
       console.error('Error in getFamilyRelationships:', error);
-      throw error;
-    }
-  },
-
-  async addFamilyMember(memberData) {
-    try {
-      const { firstName, lastName, relationship, birthDate, bio, relativeToId } = memberData;
-
-      // First add the member
-      const { data: newMember, error: memberError } = await supabase
-        .from('family_members')
-        .insert([{
-          first_name: firstName,
-          last_name: lastName,
-          birth_date: birthDate,
-          bio: bio,
-          family_id: (await this.getFamilyIdForMember(relativeToId))
-        }])
-        .select()
-        .single();
-
-      if (memberError) throw memberError;
-
-      // Then create the relationship
-      if (relativeToId) {
-        // For parent relationships, we need to create a child relationship from child to parent
-        if (relationship.toLowerCase() === 'parent') {
-          const { error: relationshipError } = await supabase
-            .from('family_relationships')
-            .insert([{
-              family_id: newMember.family_id,
-              member1_id: newMember.id,
-              member2_id: relativeToId,
-              relationship_type: 'child'
-            }]);
-
-          if (relationshipError) throw relationshipError;
-        } else {
-          // For all other relationships, create the relationship as specified
-          const { error: relationshipError } = await supabase
-            .from('family_relationships')
-            .insert([{
-              family_id: newMember.family_id,
-              member1_id: relativeToId,
-              member2_id: newMember.id,
-              relationship_type: relationship.toLowerCase()
-            }]);
-
-          if (relationshipError) throw relationshipError;
-        }
-
-        // Create reciprocal relationships for spouse and sibling
-        if (relationship.toLowerCase() === 'spouse' || relationship.toLowerCase() === 'sibling') {
-          const { error: reciprocalError } = await supabase
-            .from('family_relationships')
-            .insert([{
-              family_id: newMember.family_id,
-              member1_id: newMember.id,
-              member2_id: relativeToId,
-              relationship_type: relationship.toLowerCase()
-            }]);
-
-          if (reciprocalError) throw reciprocalError;
-        }
-      }
-
-      return newMember;
-    } catch (error) {
-      console.error('Error in addFamilyMember:', error);
       throw error;
     }
   },
@@ -184,43 +336,16 @@ export const familyService = {
 
   async getFamilyMember(memberId) {
     try {
-      // First get the member's basic information
-      const { data: member, error: memberError } = await supabase
+      const { data, error } = await supabase
         .from('family_members')
-        .select('*')
+        .select('*, user_id, is_claimed')
         .eq('id', memberId)
         .single();
 
-      if (memberError) throw memberError;
-      
-      if (!member) {
-        throw new Error('Member not found');
-      }
-
-      // Then get all relationships where this member is involved
-      const { data: relationships, error: relError } = await supabase
-        .from('family_relationships')
-        .select('*')
-        .or(`member1_id.eq.${memberId},member2_id.eq.${memberId}`);
-
-      if (relError) throw relError;
-
-      // Process relationships to determine the member's role
-      const processedRelationships = (relationships || []).map(rel => {
-        const isFirstMember = rel.member1_id === memberId;
-        return {
-          otherId: isFirstMember ? rel.member2_id : rel.member1_id,
-          type: isFirstMember ? rel.relationship_type : rel.relationship_type === 'child' ? 'parent' : rel.relationship_type
-        };
-      });
-
-      // Return combined data
-      return {
-        ...member,
-        relationships: processedRelationships
-      };
+      if (error) throw error;
+      return data;
     } catch (error) {
-      console.error('Error in getFamilyMember:', error);
+      console.error('Error getting family member:', error);
       throw error;
     }
   },
@@ -239,5 +364,10 @@ export const familyService = {
       console.error('Error in getMemberMemories:', error);
       throw error;
     }
-  }
+  },
+
+  previewMemberAddition,
+  addFamilyMember,
+  inferRelationships,
+  getReciprocalRelationType
 };

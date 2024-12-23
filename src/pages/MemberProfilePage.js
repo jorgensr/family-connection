@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { familyService } from '../services/familyService';
+import InviteMemberModal from '../components/family/InviteMemberModal';
 
 function MemberProfilePage() {
   const { memberId } = useParams();
@@ -9,6 +10,7 @@ function MemberProfilePage() {
   const [memories, setMemories] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [showInviteModal, setShowInviteModal] = useState(false);
 
   useEffect(() => {
     const loadMemberData = async () => {
@@ -68,9 +70,21 @@ function MemberProfilePage() {
     <div className="max-w-4xl mx-auto p-6">
       <div className="bg-white rounded-lg shadow-lg overflow-hidden">
         <div className="p-6">
-          <h1 className="text-3xl font-bold text-gray-900 mb-4">
-            {member.first_name} {member.last_name}
-          </h1>
+          <div className="flex justify-between items-start mb-4">
+            <h1 className="text-3xl font-bold text-gray-900">
+              {member.first_name} {member.last_name}
+            </h1>
+            {!member.is_claimed && (
+              <button
+                onClick={() => setShowInviteModal(true)}
+                className="bg-green-500 text-white px-4 py-2 rounded-md hover:bg-green-600 transition-colors flex items-center space-x-2"
+                title="Invite to claim profile"
+              >
+                <span>✉</span>
+                <span>Invite to Claim Profile</span>
+              </button>
+            )}
+          </div>
           
           {member.birth_date && (
             <p className="text-gray-600 mb-2">
@@ -118,6 +132,18 @@ function MemberProfilePage() {
           </div>
         )}
       </div>
+
+      {showInviteModal && (
+        <InviteMemberModal
+          isOpen={showInviteModal}
+          onClose={() => setShowInviteModal(false)}
+          member={{
+            id: member.id,
+            first_name: member.first_name,
+            last_name: member.last_name
+          }}
+        />
+      )}
     </div>
   );
 }
