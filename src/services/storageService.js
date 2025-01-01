@@ -3,8 +3,11 @@ import { supabase } from '../config/supabase';
 export const storageService = {
   async uploadFile(file, folder, fileName) {
     try {
-      const { data, error } = await supabase.storage
-        .from('memories')
+      // Determine the bucket based on the folder
+      const bucket = folder === 'profile_photos' ? 'profiles' : 'memories';
+      
+      const { error } = await supabase.storage
+        .from(bucket)
         .upload(`${folder}/${fileName}`, file, {
           cacheControl: '3600',
           upsert: false
@@ -17,7 +20,7 @@ export const storageService = {
 
       // Get the public URL for the uploaded file
       const { data: { publicUrl } } = supabase.storage
-        .from('memories')
+        .from(bucket)
         .getPublicUrl(`${folder}/${fileName}`);
 
       return publicUrl;
@@ -27,10 +30,13 @@ export const storageService = {
     }
   },
 
-  async deleteFile(filePath) {
+  async deleteFile(filePath, folder) {
     try {
+      // Determine the bucket based on the folder
+      const bucket = folder === 'profile_photos' ? 'profiles' : 'memories';
+      
       const { error } = await supabase.storage
-        .from('memories')
+        .from(bucket)
         .remove([filePath]);
 
       if (error) throw error;

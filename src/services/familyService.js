@@ -556,5 +556,22 @@ export const familyService = {
       console.error('Error claiming invite:', error);
       throw error;
     }
+  },
+
+  async updateFamilyMember(memberId, updates) {
+    try {
+      const { data, error } = await supabase
+        .from('family_members')
+        .update(updates)
+        .eq('id', memberId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating family member:', error);
+      throw error;
+    }
   }
 };

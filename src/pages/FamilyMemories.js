@@ -10,6 +10,7 @@ function FamilyMemories() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { user } = useAuth();
+  const [currentFamily, setCurrentFamily] = useState(null);
 
   const loadMemories = useCallback(async () => {
     if (!user) return;
@@ -28,6 +29,7 @@ function FamilyMemories() {
       if (!claimedProfiles?.length) {
         // If no claimed profile, try to create a new family
         const family = await familyService.getOrCreateFamily(`${user.email}'s Family`);
+        setCurrentFamily(family);
         
         // Then get all family members
         const { data: members } = await supabase
@@ -40,6 +42,7 @@ function FamilyMemories() {
         // Use the first claimed profile's family
         const currentMember = claimedProfiles[0];
         const family = currentMember.families;
+        setCurrentFamily(family);
 
         // Get all family members
         const { data: members } = await supabase
@@ -79,6 +82,75 @@ function FamilyMemories() {
     }
   }, [user]);
 
+  const handleAddMemory = async (memoryData) => {
+    if (!user || !currentFamily) return;
+
+    try {
+      setError(null);
+      
+      // Get the current member
+      const { data: member } = await supabase
+        .from('family_members')
+        .select('*')
+        .eq('family_id', currentFamily.id)
+        .eq('user_id', user.id)
+        .single();
+
+      if (!member) {
+        throw new Error('Member not found');
+      }
+
+      // Add the memory
+      const { data: newMemory, error: memoryError } = await supabase
+        .from('family_memories')
+        .insert([{
+          family_id: currentFamily.id,
+          family_member_id: member.id,
+          title: memoryData.title,
+          description: memoryData.description,
+          media_url: memoryData.mediaUrl,
+          created_by: user.id,
+          category: memoryData.category
+        }])
+        .select()
+        .single();
+
+      if (memoryError) throw memoryError;
+
+      // Add tags
+      if (memoryData.selectedTags?.length > 0) {
+        const { error: tagError } = await supabase
+          .from('memory_tag_assignments')
+          .insert(
+            memoryData.selectedTags.map(tagId => ({
+              memory_id: newMemory.id,
+              tag_id: tagId
+            }))
+          );
+        if (tagError) throw tagError;
+      }
+
+      // Add member tags
+      if (memoryData.taggedMembers?.length > 0) {
+        const { error: memberTagError } = await supabase
+          .from('memory_member_tags')
+          .insert(
+            memoryData.taggedMembers.map(memberId => ({
+              memory_id: newMemory.id,
+              family_member_id: memberId
+            }))
+          );
+        if (memberTagError) throw memberTagError;
+      }
+
+      // Reload memories
+      await loadMemories();
+    } catch (err) {
+      console.error('Error adding memory:', err);
+      setError(err.message);
+    }
+  };
+
   useEffect(() => {
     loadMemories();
   }, [loadMemories]);
@@ -100,7 +172,7 @@ function FamilyMemories() {
       <h1 className="text-2xl font-bold">Family Memories</h1>
       
       <AddMemoryForm 
-        onMemoryAdded={loadMemories}
+        onSubmit={handleAddMemory}
         familyMembers={familyMembers}
       />
 

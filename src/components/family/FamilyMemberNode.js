@@ -39,10 +39,43 @@ function FamilyMemberNode({ data }) {
           margin: '0 auto 8px',
           fontSize: '16px',
           color: member.gender === 'male' ? '#1565C0' : '#C2185B',
-          cursor: 'pointer'
+          cursor: 'pointer',
+          position: 'relative',
+          overflow: 'hidden'
         }}
       >
-        {initials}
+        {member.profile_picture_url ? (
+          <img
+            src={member.profile_picture_url}
+            alt={`${member.first_name} ${member.last_name}`}
+            style={{
+              width: '100%',
+              height: '100%',
+              objectFit: 'cover',
+              position: 'absolute',
+              top: 0,
+              left: 0
+            }}
+            onError={(e) => {
+              e.target.style.display = 'none';
+              e.target.nextSibling.style.display = 'flex';
+            }}
+          />
+        ) : null}
+        <div
+          style={{
+            width: '100%',
+            height: '100%',
+            display: member.profile_picture_url ? 'none' : 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            position: 'absolute',
+            top: 0,
+            left: 0
+          }}
+        >
+          {initials}
+        </div>
       </div>
       <div 
         onClick={handleProfileClick}
@@ -72,7 +105,7 @@ function FamilyMemberNode({ data }) {
         </div>
       )}
       <button
-        className="nodrag" // Prevents dragging when clicking the button
+        className="nodrag"
         onClick={(e) => {
           e.stopPropagation();
           onClick(member);
@@ -109,5 +142,4 @@ function FamilyMemberNode({ data }) {
 }
 
 // Export as both default and named export
-export { FamilyMemberNode };
-export default FamilyMemberNode;
+export { FamilyMemberNode };export default FamilyMemberNode;
