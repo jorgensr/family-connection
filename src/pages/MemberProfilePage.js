@@ -1,8 +1,9 @@
 // src/pages/MemberProfilePage.js
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import { familyService } from '../services/familyService';
 import InviteMemberModal from '../components/family/InviteMemberModal';
+import { toast } from 'react-hot-toast';
 
 function MemberProfilePage() {
   const { memberId } = useParams();
@@ -12,31 +13,38 @@ function MemberProfilePage() {
   const [error, setError] = useState(null);
   const [showInviteModal, setShowInviteModal] = useState(false);
 
-  useEffect(() => {
-    const loadMemberData = async () => {
-      if (!memberId) return;
+  const loadMemberData = useCallback(async () => {
+    if (!memberId) return;
 
-      try {
-        setLoading(true);
-        setError(null);
+    try {
+      setLoading(true);
+      setError(null);
 
-        // Load member details
-        const memberData = await familyService.getFamilyMember(memberId);
-        setMember(memberData);
+      // Load member details
+      const memberData = await familyService.getFamilyMember(memberId);
+      setMember(memberData);
 
-        // Load member memories
-        const memoriesData = await familyService.getMemberMemories(memberId);
-        setMemories(memoriesData);
-      } catch (err) {
-        console.error('Error loading member data:', err);
-        setError(err.message || 'Failed to load member data');
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    loadMemberData();
+      // Load member memories
+      const memoriesData = await familyService.getMemberMemories(memberId);
+      setMemories(memoriesData);
+    } catch (err) {
+      console.error('Error loading member data:', err);
+      setError(err.message || 'Failed to load member data');
+    } finally {
+      setLoading(false);
+    }
   }, [memberId]);
+
+  useEffect(() => {
+    loadMemberData();
+  }, [loadMemberData]);
+
+  const handleInviteSuccess = () => {
+    toast.success('Invite sent successfully!');
+    setShowInviteModal(false);
+    // Reload member data to reflect the updated invite status
+    loadMemberData();
+  };
 
   if (loading) {
     return (
@@ -98,6 +106,12 @@ function MemberProfilePage() {
               <p className="text-gray-700">{member.bio}</p>
             </div>
           )}
+
+          {member.is_claimed && (
+            <div className="mt-4 bg-blue-50 text-blue-700 px-4 py-2 rounded-md">
+              ✓ Profile Claimed
+            </div>
+          )}
         </div>
       </div>
 
@@ -142,6 +156,7 @@ function MemberProfilePage() {
             first_name: member.first_name,
             last_name: member.last_name
           }}
+          onSuccess={handleInviteSuccess}
         />
       )}
     </div>

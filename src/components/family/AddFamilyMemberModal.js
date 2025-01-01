@@ -8,7 +8,8 @@ const AddFamilyMemberModal = ({ isOpen, onClose, onAdd, relativeTo }) => {
     firstName: '',
     lastName: '',
     birthDate: '',
-    relationshipType: relativeTo ? 'child' : 'self',
+    relationshipType: relativeTo ? 'child' : '',
+    gender: 'unknown'
   });
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [inferredRelationships, setInferredRelationships] = useState([]);
@@ -62,6 +63,17 @@ const AddFamilyMemberModal = ({ isOpen, onClose, onAdd, relativeTo }) => {
       default:
         return `will be added as ${relationship.relationship_type}`;
     }
+  };
+
+  const getAvailableRelationships = () => {
+    if (!relativeTo) return [];
+
+    // If this is a spouse, they can't have another spouse
+    if (relativeTo.hasSpouse) {
+      return ['parent', 'child'];
+    }
+
+    return ['parent', 'child', 'spouse'];
   };
 
   return (
@@ -132,6 +144,23 @@ const AddFamilyMemberModal = ({ isOpen, onClose, onAdd, relativeTo }) => {
 
                   <div>
                     <label className="block text-sm font-medium text-gray-700">
+                      Gender
+                    </label>
+                    <select
+                      value={formData.gender}
+                      onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+                      className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="unknown">Prefer not to say</option>
+                      <option value="male">Male</option>
+                      <option value="female">Female</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700">
                       Birth Date
                     </label>
                     <input
@@ -156,11 +185,14 @@ const AddFamilyMemberModal = ({ isOpen, onClose, onAdd, relativeTo }) => {
                         value={formData.relationshipType}
                         onChange={(e) => setFormData({ ...formData, relationshipType: e.target.value })}
                         className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                        required
                       >
-                        <option value="parent">Parent</option>
-                        <option value="child">Child</option>
-                        <option value="spouse">Spouse</option>
-                        <option value="sibling">Sibling</option>
+                        <option value="">Select Relationship</option>
+                        {getAvailableRelationships().map(type => (
+                          <option key={type} value={type}>
+                            {type.charAt(0).toUpperCase() + type.slice(1)}
+                          </option>
+                        ))}
                       </select>
                     </div>
                   )}
@@ -240,6 +272,7 @@ AddFamilyMemberModal.propTypes = {
     id: PropTypes.string.isRequired,
     first_name: PropTypes.string.isRequired,
     last_name: PropTypes.string.isRequired,
+    hasSpouse: PropTypes.bool,
   }),
 };
 

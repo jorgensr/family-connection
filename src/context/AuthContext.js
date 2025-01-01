@@ -56,30 +56,7 @@ export function AuthProvider({ children }) {
         
         // Check if email confirmation is required
         if (authData.session) {
-          // User is immediately signed in - create family
-          try {
-            const { data: family, error: familyError } = await supabase
-              .from('families')
-              .insert([
-                { 
-                  name: `${userData.firstName}'s Family`,
-                  created_by: authData.user.id 
-                }
-              ])
-              .select()
-              .single();
-
-            if (familyError) {
-              console.error('Family creation error:', familyError);
-              throw familyError;
-            }
-            
-            console.log('Family created:', family);
-            return true;
-          } catch (err) {
-            console.error('Error creating family:', err);
-            throw err;
-          }
+          return true;
         } else {
           // Email confirmation required
           setError('Please check your email for confirmation link before logging in.');
@@ -97,7 +74,7 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     try {
       setError(null);
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });

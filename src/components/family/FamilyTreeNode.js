@@ -31,7 +31,7 @@ function FamilyTreeNode({ member, onAddMember, familyId, onViewProfile }) {
           <div className="flex-1">
             <div className="flex items-center space-x-2">
               <button
-                onClick={() => onViewProfile(member)}
+                onClick={() => onViewProfile(member.id)}
                 className="text-lg font-semibold text-gray-900 hover:underline"
               >
                 {member.first_name} {member.last_name}

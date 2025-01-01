@@ -313,6 +313,11 @@ const EnhancedFamilyTree = React.memo(({ familyMembers, relationships, onAddMemb
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedEdge, setSelectedEdge] = useState(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const navigate = useNavigate();
+
+  const handleViewProfile = useCallback((memberId) => {
+    navigate(`/family-member/${memberId}`);
+  }, [navigate]);
 
   console.log('EnhancedFamilyTree render:', { 
     familyMembersCount: familyMembers?.length,
@@ -408,6 +413,7 @@ const EnhancedFamilyTree = React.memo(({ familyMembers, relationships, onAddMemb
             birthDate: member.birth_date,
             is_claimed: member.is_claimed,
             onAdd: () => onAddMember(member),
+            onViewProfile: handleViewProfile,
           },
         });
 
@@ -537,7 +543,7 @@ const EnhancedFamilyTree = React.memo(({ familyMembers, relationships, onAddMemb
     } finally {
       setIsProcessing(false);
     }
-  }, [familyMembers, relationships, setNodes, setEdges, onAddMember, isProcessing]);
+  }, [familyMembers, relationships, setNodes, setEdges, onAddMember, isProcessing, handleViewProfile]);
 
   // Reset search when members change
   useEffect(() => {

@@ -11,6 +11,7 @@ import MemberProfilePage from './pages/MemberProfilePage';
 import { useAuth } from './context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import EmailConfirmation from './pages/EmailConfirmation';
+import ClaimInvite from './pages/ClaimInvite';
 
 function Navigation() {
   const { user, logout } = useAuth();
@@ -94,6 +95,7 @@ function App() {
             <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
               <Routes>
                 <Route path="/login" element={<Login />} />
+                <Route path="/claim-invite/:inviteToken" element={<ClaimInvite />} />
                 <Route
                   path="/family-tree"
                   element={
