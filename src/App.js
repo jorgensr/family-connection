@@ -8,6 +8,7 @@ import FamilyTree from './pages/FamilyTree';
 import FamilyMemories from './pages/FamilyMemories';
 import Profile from './pages/Profile';
 import MemberProfilePage from './pages/MemberProfilePage';
+import HomePage from './pages/HomePage';
 import { useAuth } from './context/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import EmailConfirmation from './pages/EmailConfirmation';
@@ -91,59 +92,45 @@ function App() {
       <AuthProvider>
         <div className="min-h-screen bg-gray-100">
           <Navigation />
-          <main className="py-10">
-            <div className="max-w-7xl mx-auto sm:px-6 lg:px-8">
-              <Routes>
-                <Route path="/login" element={<Login />} />
-                <Route path="/claim-invite/:inviteToken" element={<ClaimInvite />} />
-                <Route
-                  path="/family-tree"
-                  element={
-                    <PrivateRoute>
-                      <FamilyTree />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/memories"
-                  element={
-                    <PrivateRoute>
-                      <FamilyMemories />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/profile"
-                  element={
-                    <PrivateRoute>
-                      <Profile />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/family-member/:memberId"
-                  element={
-                    <PrivateRoute>
-                      <MemberProfilePage />
-                    </PrivateRoute>
-                  }
-                />
-                <Route
-                  path="/"
-                  element={
-                    <div className="text-center">
-                      <h1 className="text-4xl font-bold text-gray-900 mb-4">
-                        Welcome to Family Legacy Connection
-                      </h1>
-                      <p className="text-xl text-gray-600">
-                        Connect with your family, share memories, and build your family tree together.
-                      </p>
-                    </div>
-                  }
-                />
-                <Route path="/email-confirmation" element={<EmailConfirmation />} />
-              </Routes>
-            </div>
+          <main>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/claim-invite/:inviteToken" element={<ClaimInvite />} />
+              <Route
+                path="/family-tree"
+                element={
+                  <PrivateRoute>
+                    <FamilyTree />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/memories"
+                element={
+                  <PrivateRoute>
+                    <FamilyMemories />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <PrivateRoute>
+                    <Profile />
+                  </PrivateRoute>
+                }
+              />
+              <Route
+                path="/family-member/:memberId"
+                element={
+                  <PrivateRoute>
+                    <MemberProfilePage />
+                  </PrivateRoute>
+                }
+              />
+              <Route path="/" element={<HomePage />} />
+              <Route path="/email-confirmation" element={<EmailConfirmation />} />
+            </Routes>
           </main>
         </div>
       </AuthProvider>
