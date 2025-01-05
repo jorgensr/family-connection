@@ -6,6 +6,7 @@ import AddFamilyMemberModal from '../components/family/AddFamilyMemberModal';
 import HierarchicalFamilyTree from '../components/family/HierarchicalFamilyTree';
 import { ReactFlowProvider } from 'reactflow';
 import { supabase } from '../config/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center min-h-screen">
@@ -198,9 +199,26 @@ function FamilyTree() {
         }
       }
 
+      // Skip relationship preview for first member
+      if (!newMember.relatedMemberId && newMember.simulate) {
+        return {
+          member: {
+            id: uuidv4(),
+            family_id: currentFamily?.id || uuidv4(),
+            first_name: newMember.firstName,
+            last_name: newMember.lastName,
+            birth_date: newMember.birthDate,
+            generation_level: 0,
+            family_side: 'neutral'
+          },
+          directRelation: null,
+          inferredRelations: []
+        };
+      }
+
       if (newMember.simulate) {
-        // For simulation, use existing family if available, otherwise use a temporary ID
-        const familyId = currentFamily?.id || 'temp-family-id';
+        // For simulation, use existing family if available, otherwise use a proper UUID
+        const familyId = currentFamily?.id || uuidv4();
         // Preview relationships
         const previewData = await familyService.previewMemberAddition({
           ...newMember,

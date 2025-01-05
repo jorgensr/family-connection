@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { supabase } from '../config/supabase';
 
@@ -10,19 +10,7 @@ function EmailConfirmation() {
   const [isResending, setIsResending] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = searchParams.get('token');
-    const type = searchParams.get('type');
-    
-    if (type === 'signup' && token) {
-      verifyEmail(token);
-    } else {
-      setStatus('invalid');
-      setError('Invalid confirmation link');
-    }
-  }, [searchParams]);
-
-  const verifyEmail = async (token) => {
+  const verifyEmail = useCallback(async (token) => {
     try {
       const { error } = await supabase.auth.verifyOtp({
         token_hash: token,
@@ -41,7 +29,19 @@ function EmailConfirmation() {
       setStatus('error');
       setError(err.message);
     }
-  };
+  }, [navigate]);
+
+  useEffect(() => {
+    const token = searchParams.get('token');
+    const type = searchParams.get('type');
+    
+    if (type === 'signup' && token) {
+      verifyEmail(token);
+    } else {
+      setStatus('invalid');
+      setError('Invalid confirmation link');
+    }
+  }, [searchParams, verifyEmail]);
 
   const handleResendConfirmation = async (e) => {
     e.preventDefault();

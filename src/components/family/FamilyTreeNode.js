@@ -94,10 +94,10 @@ function FamilyTreeNode({ member, onAddMember, familyId, onViewProfile }) {
               required
             >
               <option value="">Select Relationship</option>
-              <option value="Child">Child</option>
-              <option value="Spouse">Spouse</option>
-              <option value="Parent">Parent</option>
-              <option value="Sibling">Sibling</option>
+              <option value="child">Child</option>
+              <option value="spouse">Spouse</option>
+              <option value="parent">Parent</option>
+              <option value="sibling">Sibling</option>
             </select>
             <div className="flex justify-end space-x-2">
               <button

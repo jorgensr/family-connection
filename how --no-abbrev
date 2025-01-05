@@ -1,0 +1,7 @@
+[33m1326d06[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m)[m Add profile photo support: Implement photo upload and display in family tree nodes
+[33m848ae20[m Fix invite functionality and memories access: 1. Fixed RLS policies for family_members table 2. Improved invite claiming process 3. Fixed memories page to work with claimed profiles 4. Added proper error handling for invite flow
+[33m50030ff[m Invite button implemented and Basic linking
+[33mfc8c2cd[m new relationship trees formating, tree visual without connections
+[33m1959fdd[m Media upload, new relationship trees, but no Tree visualization
+[33m8268c75[m[33m ([m[1;33mtag: [m[1;33mv1.0.0[m[33m)[m Fixed ui/ux issues and added new pages
+[33m54181cd[m Initial commit
