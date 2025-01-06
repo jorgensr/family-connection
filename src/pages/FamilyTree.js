@@ -352,12 +352,22 @@ function FamilyTree() {
           }}
           onAdd={async (memberData) => {
             try {
-              const result = await familyService.addFamilyMember({
-                ...memberData,
-                familyId: family.id
-              });
-              await loadFamilyTree();
-              return result;
+              if (memberData.simulate) {
+                // Preview mode - just return the simulated relationships
+                const preview = await familyService.previewMemberAddition({
+                  ...memberData,
+                  familyId: family.id
+                });
+                return preview;
+              } else {
+                // Actual addition
+                const result = await familyService.addFamilyMember({
+                  ...memberData,
+                  familyId: family.id
+                });
+                await loadFamilyTree();
+                return result;
+              }
             } catch (error) {
               console.error('Error adding family member:', error);
               throw error;

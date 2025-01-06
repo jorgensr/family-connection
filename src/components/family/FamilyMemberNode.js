@@ -6,7 +6,8 @@ import {
   PlusIcon,
   ChevronDownIcon,
   ChevronUpIcon,
-  UserCircleIcon
+  UserCircleIcon,
+  HeartIcon
 } from '@heroicons/react/24/outline';
 
 export function FamilyMemberNode({ data }) {
@@ -14,7 +15,7 @@ export function FamilyMemberNode({ data }) {
   const [isHovered, setIsHovered] = useState(false);
   const navigate = useNavigate();
 
-  const { member, onAdd, isHighlighted } = data;
+  const { member, onAdd, isHighlighted, isSpouse, spousePosition } = data;
 
   const getInitials = (firstName, lastName) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
@@ -50,13 +51,20 @@ export function FamilyMemberNode({ data }) {
     exit: { height: 0, opacity: 0 }
   };
 
+  // Determine border radius based on spouse position
+  const getBorderRadius = () => {
+    if (!isSpouse) return 'rounded-lg';
+    return spousePosition === 'left' ? 'rounded-l-lg' : 'rounded-r-lg';
+  };
+
   return (
     <>
       <Handle type="target" position={Position.Top} className="w-3 h-3 bg-blue-500" />
       <motion.div
-        className={`relative rounded-lg shadow-lg transition-colors
+        className={`relative shadow-lg transition-colors
           ${isHighlighted ? 'bg-blue-50 ring-2 ring-blue-500' : 'bg-white hover:bg-gray-50'}
-          ${showDetails ? 'min-w-[280px]' : 'min-w-[200px]'}`}
+          ${showDetails ? 'min-w-[280px]' : 'min-w-[200px]'}
+          ${getBorderRadius()}`}
         initial="initial"
         animate="animate"
         whileHover="hover"
@@ -64,6 +72,17 @@ export function FamilyMemberNode({ data }) {
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
+        {/* Heart Icon for Spouse Connection */}
+        {isSpouse && (
+          <div 
+            className={`absolute top-1/2 -translate-y-1/2 ${
+              spousePosition === 'left' ? 'right-[-8px]' : 'left-[-8px]'
+            } z-10 flex items-center justify-center w-4`}
+          >
+            <HeartIcon className="w-4 h-4 text-pink-500 fill-pink-500" />
+          </div>
+        )}
+
         <div className="p-4">
           <div className="flex items-center space-x-3">
             <div 

@@ -6,6 +6,7 @@ const AddFirstMemberForm = ({ onSubmit }) => {
     firstName: '',
     lastName: '',
     birthDate: '',
+    gender: '',
     bio: ''
   });
 
@@ -15,6 +16,7 @@ const AddFirstMemberForm = ({ onSubmit }) => {
       firstName: formData.firstName,
       lastName: formData.lastName,
       birthDate: formData.birthDate,
+      gender: formData.gender,
       bio: formData.bio
     });
   };
@@ -42,6 +44,20 @@ const AddFirstMemberForm = ({ onSubmit }) => {
             required
             className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
           />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Gender</label>
+          <select
+            value={formData.gender}
+            onChange={(e) => setFormData({ ...formData, gender: e.target.value })}
+            required
+            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+          >
+            <option value="">Select gender</option>
+            <option value="male">Male</option>
+            <option value="female">Female</option>
+            <option value="other">Other</option>
+          </select>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-700">Birth Date</label>

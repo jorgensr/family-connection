@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import ReactFlow, { 
   Controls,
   Background,
@@ -13,6 +14,18 @@ import { FamilyMemberNode } from './FamilyMemberNode';
 import { calculateFamilyTreeLayout } from '../../utils/familyTreeLayout';
 import { useHotkeys } from 'react-hotkeys-hook';
 import FamilyTreeStart from './FamilyTreeStart';
+
+// Constants for layout
+const DEFAULT_NODE_SIZE = {
+  WIDTH: 200,
+  HEIGHT: 100
+};
+
+const SPACING = {
+  MIN_HORIZONTAL: 20,
+  SPOUSE_GAP: 0,
+  MIN_VERTICAL: 150
+};
 
 // Define edge types and options
 const edgeOptions = {
@@ -34,6 +47,63 @@ const relationshipColors = {
   sibling: '#6366f1' // indigo-500
 };
 
+const getEdgeStyle = (relationship) => {
+  const baseStyle = {
+    animated: false,
+    strokeWidth: 2,
+    strokeDasharray: 'none',
+  };
+
+  switch (relationship) {
+    case 'parent':
+      return {
+        ...baseStyle,
+        stroke: '#8B5CF6',
+        strokeWidth: 3,
+        type: 'smoothstep',
+      };
+    case 'child':
+      return {
+        ...baseStyle,
+        stroke: '#10B981',
+        strokeWidth: 3,
+        type: 'smoothstep',
+      };
+    case 'spouse':
+      return {
+        ...baseStyle,
+        stroke: 'transparent', // Make spouse connection invisible
+        strokeWidth: 0,
+        type: 'straight',
+      };
+    case 'sibling':
+      return {
+        ...baseStyle,
+        stroke: '#F59E0B',
+        strokeWidth: 3,
+        type: 'straight',
+      };
+    default:
+      return {
+        ...baseStyle,
+        stroke: '#9CA3AF',
+        strokeWidth: 2,
+        type: 'straight',
+      };
+  }
+};
+
+// Create edges helper function
+const createEdges = (positions, relationships) => {
+  return relationships.map(rel => ({
+    id: `${rel.member1_id}-${rel.member2_id}`,
+    source: rel.member1_id,
+    target: rel.member2_id,
+    type: rel.relationship_type === 'spouse' ? 'straight' : 'smoothstep',
+    style: getEdgeStyle(rel.relationship_type)
+  }));
+};
+
 const HierarchicalFamilyTree = ({ 
   familyMembers = [], 
   relationships = [], 
@@ -44,80 +114,17 @@ const HierarchicalFamilyTree = ({
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
   const { fitView, getZoom, setViewport } = useReactFlow();
   const containerRef = useRef(null);
+  const navigate = useNavigate();
+
+  // Handle profile view navigation
+  const handleViewProfile = useCallback((memberId) => {
+    navigate(`/family-member/${memberId}`);
+  }, [navigate]);
 
   // Define node types inside component
-  const nodeTypes = React.useMemo(() => ({
+  const nodeTypes = useMemo(() => ({
     familyMember: FamilyMemberNode
   }), []);
-
-  const createEdges = useCallback((positions) => {
-    if (!positions || !relationships) return [];
-    
-    const newEdges = [];
-    const processedRelationships = new Set();
-    
-    relationships.forEach((rel) => {
-      const relationshipKey = `${rel.member1_id}-${rel.member2_id}`;
-      const reverseKey = `${rel.member2_id}-${rel.member1_id}`;
-      
-      if (processedRelationships.has(relationshipKey) || processedRelationships.has(reverseKey)) {
-        return;
-      }
-      
-      const source = positions.find(p => p.member.id === rel.member1_id);
-      const target = positions.find(p => p.member.id === rel.member2_id);
-      
-      if (!source?.member || !target?.member) return;
-
-      const baseEdgeStyle = {
-        ...edgeOptions.style,
-        stroke: relationshipColors[rel.relationship_type] || edgeOptions.style.stroke,
-        opacity: searchQuery ? 0.3 : 1
-      };
-
-      if (rel.relationship_type === 'spouse') {
-        newEdges.push({
-          id: relationshipKey,
-          source: source.member.id,
-          target: target.member.id,
-          type: 'straight',
-          style: {
-            ...baseEdgeStyle,
-            strokeDasharray: '5,5'
-          },
-          animated: false
-        });
-      } else if (rel.relationship_type === 'parent' || rel.relationship_type === 'child') {
-        const [parentPos, childPos] = rel.relationship_type === 'parent' 
-          ? [source, target]
-          : [target, source];
-
-        newEdges.push({
-          id: `${parentPos.member.id}-${childPos.member.id}`,
-          source: parentPos.member.id,
-          target: childPos.member.id,
-          type: 'smoothstep',
-          markerEnd: edgeOptions.markerEnd,
-          style: baseEdgeStyle,
-          animated: true
-        });
-      }
-      
-      processedRelationships.add(relationshipKey);
-      processedRelationships.add(reverseKey);
-    });
-
-    return newEdges;
-  }, [relationships, searchQuery]);
-
-  // Add performance monitoring
-  useEffect(() => {
-    performance.mark('tree-render-start');
-    return () => {
-      performance.mark('tree-render-end');
-      performance.measure('tree-render', 'tree-render-start', 'tree-render-end');
-    };
-  }, [familyMembers, relationships]);
 
   // Memoize expensive calculations
   const memoizedPositions = useMemo(() => 
@@ -125,25 +132,49 @@ const HierarchicalFamilyTree = ({
     [familyMembers, relationships]
   );
 
-  const memoizedNodes = useMemo(() => 
-    memoizedPositions.map(({ member, x, y }) => ({
-      id: member.id,
-      type: 'familyMember',
-      position: { x: x * 250, y: y * 150 },
-      data: { 
-        member,
-        onAdd: onAddMember,
-        isHighlighted: searchQuery ? 
-          `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
-          false
+  const memoizedNodes = useMemo(() => {
+    return memoizedPositions.map(({ member, x, y, isSpouseNode }) => {
+      // Find spouse relationship
+      const spouseRelationship = relationships.find(rel => 
+        rel.relationship_type === 'spouse' && 
+        (rel.member1_id === member.id || rel.member2_id === member.id)
+      );
+
+      const isSpouse = spouseRelationship !== undefined;
+      const spousePosition = isSpouse ? 
+        (spouseRelationship.member1_id === member.id ? 'left' : 'right') : 
+        undefined;
+
+      // Adjust x position for spouses to be directly adjacent
+      let adjustedX = x;
+      if (isSpouse) {
+        adjustedX = spousePosition === 'left' ? x : x + DEFAULT_NODE_SIZE.WIDTH/250 + SPACING.SPOUSE_GAP/250;
       }
-    })),
-    [memoizedPositions, searchQuery, onAddMember]
-  );
+
+      return {
+        id: member.id,
+        type: 'familyMember',
+        position: { 
+          x: adjustedX * 250, 
+          y: y * 150 
+        },
+        data: { 
+          member,
+          onAdd: onAddMember,
+          onViewProfile: handleViewProfile,
+          isHighlighted: searchQuery ? 
+            `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+            false,
+          isSpouse,
+          spousePosition
+        }
+      };
+    });
+  }, [memoizedPositions, searchQuery, onAddMember, relationships, handleViewProfile]);
 
   const memoizedEdges = useMemo(() => 
-    createEdges(memoizedPositions),
-    [memoizedPositions, createEdges]
+    createEdges(memoizedPositions, relationships),
+    [memoizedPositions, relationships]
   );
 
   const updateNodesAndEdges = useCallback(() => {
