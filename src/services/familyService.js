@@ -311,8 +311,14 @@ const inferRelationships = async (familyId, newMember, directRelation) => {
   }
 };
 
+const logPerformance = (methodName, startTime) => {
+  const duration = performance.now() - startTime;
+  console.debug(`${methodName} took ${duration.toFixed(2)}ms`);
+};
+
 // Function to preview member addition
 const previewMemberAddition = async (newMember) => {
+  const startTime = performance.now();
   try {
     // Validate familyId is a UUID
     if (!newMember.familyId || typeof newMember.familyId !== 'string' || !newMember.familyId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
@@ -383,6 +389,7 @@ const previewMemberAddition = async (newMember) => {
     );
 
     // Return preview data
+    logPerformance('previewMemberAddition', startTime);
     return {
       member: mockMember,
       directRelation,
@@ -394,8 +401,9 @@ const previewMemberAddition = async (newMember) => {
   }
 };
 
-// Update addFamilyMember function to include relationship inference
+// Update addFamilyMember function to include performance monitoring
 const addFamilyMember = async (newMember) => {
+  const startTime = performance.now();
   try {
     // Validate familyId is a UUID
     if (!newMember.familyId || typeof newMember.familyId !== 'string' || !newMember.familyId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)) {
@@ -507,6 +515,8 @@ const addFamilyMember = async (newMember) => {
   } catch (error) {
     console.error('Error adding family member:', error);
     throw error;
+  } finally {
+    logPerformance('addFamilyMember', startTime);
   }
 };
 
@@ -602,6 +612,7 @@ export const familyService = {
   },
 
   async getFamilyMembers(familyId) {
+    const startTime = performance.now();
     try {
       const { data, error } = await supabase
         .from('family_members')
@@ -609,6 +620,7 @@ export const familyService = {
         .eq('family_id', familyId);
 
       if (error) throw error;
+      logPerformance('getFamilyMembers', startTime);
       return data || [];
     } catch (error) {
       console.error('Error in getFamilyMembers:', error);
@@ -617,6 +629,7 @@ export const familyService = {
   },
 
   async getFamilyRelationships(familyId) {
+    const startTime = performance.now();
     try {
       const { data, error } = await supabase
         .from('family_relationships')
@@ -624,6 +637,7 @@ export const familyService = {
         .eq('family_id', familyId);
 
       if (error) throw error;
+      logPerformance('getFamilyRelationships', startTime);
       return data || [];
     } catch (error) {
       console.error('Error in getFamilyRelationships:', error);

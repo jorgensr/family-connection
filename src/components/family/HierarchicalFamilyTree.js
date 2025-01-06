@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo } from 'react';
 import ReactFlow, { 
   Controls,
   Background,
@@ -12,6 +12,7 @@ import 'reactflow/dist/style.css';
 import { FamilyMemberNode } from './FamilyMemberNode';
 import { calculateFamilyTreeLayout } from '../../utils/familyTreeLayout';
 import { useHotkeys } from 'react-hotkeys-hook';
+import FamilyTreeStart from './FamilyTreeStart';
 
 // Define edge types and options
 const edgeOptions = {
@@ -109,10 +110,23 @@ const HierarchicalFamilyTree = ({
     return newEdges;
   }, [relationships, searchQuery]);
 
-  const updateNodesAndEdges = useCallback(() => {
-    const positions = calculateFamilyTreeLayout(familyMembers, relationships);
-    
-    const newNodes = positions.map(({ member, x, y }) => ({
+  // Add performance monitoring
+  useEffect(() => {
+    performance.mark('tree-render-start');
+    return () => {
+      performance.mark('tree-render-end');
+      performance.measure('tree-render', 'tree-render-start', 'tree-render-end');
+    };
+  }, [familyMembers, relationships]);
+
+  // Memoize expensive calculations
+  const memoizedPositions = useMemo(() => 
+    calculateFamilyTreeLayout(familyMembers, relationships),
+    [familyMembers, relationships]
+  );
+
+  const memoizedNodes = useMemo(() => 
+    memoizedPositions.map(({ member, x, y }) => ({
       id: member.id,
       type: 'familyMember',
       position: { x: x * 250, y: y * 150 },
@@ -123,18 +137,23 @@ const HierarchicalFamilyTree = ({
           `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
           false
       }
-    }));
+    })),
+    [memoizedPositions, searchQuery, onAddMember]
+  );
 
-    const newEdges = createEdges(positions);
+  const memoizedEdges = useMemo(() => 
+    createEdges(memoizedPositions),
+    [memoizedPositions, createEdges]
+  );
+
+  const updateNodesAndEdges = useCallback(() => {
+    setNodes(memoizedNodes);
+    setEdges(memoizedEdges);
     
-    setNodes(newNodes);
-    setEdges(newEdges);
-    
-    // Center the view after a short delay to ensure nodes are rendered
     setTimeout(() => {
       fitView({ padding: 0.2, duration: 800 });
     }, 100);
-  }, [familyMembers, relationships, createEdges, setNodes, setEdges, fitView, searchQuery, onAddMember]);
+  }, [memoizedNodes, memoizedEdges, setNodes, setEdges, fitView]);
 
   useEffect(() => {
     updateNodesAndEdges();
@@ -154,6 +173,11 @@ const HierarchicalFamilyTree = ({
     const zoom = getZoom();
     setViewport({ zoom: Math.max(zoom - 0.2, 0.1) }, { duration: 300 });
   }, [getZoom, setViewport]);
+
+  // If there are no family members, show the start page
+  if (familyMembers.length === 0) {
+    return <FamilyTreeStart onStartTree={onAddMember} />;
+  }
 
   return (
     <div ref={containerRef} className="w-full h-full">

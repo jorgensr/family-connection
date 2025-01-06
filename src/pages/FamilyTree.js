@@ -1,12 +1,13 @@
 // src/pages/FamilyTree.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Fragment } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { familyService } from '../services/familyService';
 import AddFamilyMemberModal from '../components/family/AddFamilyMemberModal';
+import AddFirstMemberForm from '../components/family/AddFirstMemberForm';
 import HierarchicalFamilyTree from '../components/family/HierarchicalFamilyTree';
+import FamilyTreeStart from '../components/family/FamilyTreeStart';
 import { ReactFlowProvider } from 'reactflow';
 import { supabase } from '../config/supabase';
-import { v4 as uuidv4 } from 'uuid';
 import {
   MagnifyingGlassIcon,
   PlusIcon,
@@ -15,27 +16,11 @@ import {
   XMarkIcon
 } from '@heroicons/react/24/outline';
 import { Transition } from '@headlessui/react';
+import { Dialog } from '@headlessui/react';
 
 const LoadingSpinner = () => (
   <div className="flex justify-center items-center min-h-screen">
     <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500"></div>
-  </div>
-);
-
-const EmptyState = ({ onAddMember }) => (
-  <div className="flex flex-col items-center justify-center h-full bg-white rounded-xl shadow-lg p-8 max-w-md mx-auto text-center">
-    <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-      <PlusIcon className="h-8 w-8 text-blue-600" />
-    </div>
-    <h3 className="text-xl font-semibold text-gray-900 mb-2">Start Your Family Tree</h3>
-    <p className="text-gray-500 mb-6">Begin by adding your first family member to create your family tree.</p>
-    <button
-      onClick={() => onAddMember(null)}
-      className="inline-flex items-center px-4 py-2 rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
-    >
-      <PlusIcon className="h-5 w-5 mr-2" />
-      Add First Family Member
-    </button>
   </div>
 );
 
@@ -111,7 +96,7 @@ const FamilyTreeContent = ({ familyMembers, relationships, onAddMember }) => {
   const [showControls, setShowControls] = useState(false);
 
   if (familyMembers?.length === 0) {
-    return <EmptyState onAddMember={onAddMember} />;
+    return <FamilyTreeStart onStartTree={onAddMember} />;
   }
 
   return (
@@ -143,6 +128,7 @@ function FamilyTree() {
   const [familyMembers, setFamilyMembers] = useState([]);
   const [relationships, setRelationships] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showFirstMemberForm, setShowFirstMemberForm] = useState(false);
   const [selectedMember, setSelectedMember] = useState(null);
   const [family, setFamily] = useState(null);
   const { user } = useAuth();
@@ -255,98 +241,39 @@ function FamilyTree() {
 
   const handleAddMember = useCallback((member) => {
     console.log('Adding member relative to:', member);
-    // If member exists, check if they have a spouse
-    if (member) {
+    if (familyMembers.length === 0) {
+      setShowFirstMemberForm(true);
+    } else if (member) {
       const hasSpouse = relationships.some(rel => 
         (rel.relationship_type === 'spouse' && 
          (rel.member1_id === member.id || rel.member2_id === member.id))
       );
       setSelectedMember({ ...member, hasSpouse });
-    } else {
-      setSelectedMember(null);
+      setShowAddModal(true);
     }
-    setShowAddModal(true);
-  }, [relationships]);
+  }, [familyMembers.length, relationships]);
 
-  const handleAddFamilyMember = useCallback(async (newMember) => {
+  const handleAddFirstMember = async (memberData) => {
     try {
-      setError(null);
-
-      // Get or create family only if we're actually adding a member (not simulating)
-      let currentFamily = family;
-      if (!currentFamily && !newMember.simulate) {
-        // First check if user already has a family
-        const { data: existingFamilies, error: fetchError } = await supabase
-          .from('families')
-          .select('*')
-          .eq('created_by', user.id)
-          .limit(1);
-
-        if (fetchError) throw fetchError;
-
-        if (existingFamilies && existingFamilies.length > 0) {
-          currentFamily = existingFamilies[0];
-          setFamily(currentFamily);
-        } else {
-          currentFamily = await familyService.getOrCreateFamily(`${user.email}'s Family`);
-          setFamily(currentFamily);
-        }
+      // Create family if it doesn't exist
+      if (!family) {
+        const newFamily = await familyService.getOrCreateFamily('My Family Tree');
+        setFamily(newFamily);
       }
 
-      // Skip relationship preview for first member
-      if (!newMember.relatedMemberId && newMember.simulate) {
-        return {
-          member: {
-            id: uuidv4(),
-            family_id: currentFamily?.id || uuidv4(),
-            first_name: newMember.firstName,
-            last_name: newMember.lastName,
-            birth_date: newMember.birthDate,
-            generation_level: 0,
-            family_side: 'neutral'
-          },
-          directRelation: null,
-          inferredRelations: []
-        };
-      }
+      // Add first member
+      const result = await familyService.addFirstFamilyMember(family.id, {
+        ...memberData,
+        userId: user.id
+      });
 
-      if (newMember.simulate) {
-        // For simulation, use existing family if available, otherwise use a proper UUID
-        const familyId = currentFamily?.id || uuidv4();
-        // Preview relationships
-        const previewData = await familyService.previewMemberAddition({
-          ...newMember,
-          familyId
-        });
-        return previewData;
-      } else {
-        // If this is the first member (no relativeTo member), use addFirstFamilyMember
-        if (!newMember.relatedMemberId) {
-          await familyService.addFirstFamilyMember(currentFamily.id, {
-            firstName: newMember.firstName,
-            lastName: newMember.lastName,
-            birthDate: newMember.birthDate,
-            userId: user.id,
-            gender: newMember.gender
-          });
-        } else {
-          await familyService.addFamilyMember({
-            ...newMember,
-            familyId: currentFamily.id,
-            gender: newMember.gender
-          });
-        }
-        
-        await loadFamilyTree();
-        setShowAddModal(false);
-        setSelectedMember(null);
-      }
-    } catch (err) {
-      console.error('Error adding family member:', err);
-      setError(err.message);
-      throw err;
+      setFamilyMembers([result]);
+      setShowFirstMemberForm(false);
+      await loadFamilyTree(); // Reload the tree
+    } catch (error) {
+      console.error('Error adding first member:', error);
     }
-  }, [loadFamilyTree, user?.email, user?.id, family]);
+  };
 
   if (loading) {
     return <LoadingSpinner />;
@@ -398,6 +325,24 @@ function FamilyTree() {
         )}
       </div>
 
+      {/* First Member Form */}
+      <Transition appear show={showFirstMemberForm} as={Fragment}>
+        <Dialog
+          as="div"
+          className="fixed inset-0 z-10 overflow-y-auto"
+          onClose={() => setShowFirstMemberForm(false)}
+        >
+          <div className="min-h-screen px-4 text-center">
+            <Dialog.Overlay className="fixed inset-0 bg-black opacity-30" />
+            <span className="inline-block h-screen align-middle">&#8203;</span>
+            <div className="inline-block w-full max-w-md p-6 my-8 overflow-hidden text-left align-middle transition-all transform bg-white shadow-xl rounded-2xl">
+              <AddFirstMemberForm onSubmit={handleAddFirstMember} />
+            </div>
+          </div>
+        </Dialog>
+      </Transition>
+
+      {/* Regular Add Member Modal */}
       {showAddModal && (
         <AddFamilyMemberModal
           isOpen={showAddModal}
@@ -405,7 +350,19 @@ function FamilyTree() {
             setShowAddModal(false);
             setSelectedMember(null);
           }}
-          onSubmit={handleAddFamilyMember}
+          onAdd={async (memberData) => {
+            try {
+              const result = await familyService.addFamilyMember({
+                ...memberData,
+                familyId: family.id
+              });
+              await loadFamilyTree();
+              return result;
+            } catch (error) {
+              console.error('Error adding family member:', error);
+              throw error;
+            }
+          }}
           relativeTo={selectedMember}
         />
       )}
