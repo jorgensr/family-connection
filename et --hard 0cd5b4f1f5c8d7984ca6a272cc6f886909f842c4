@@ -1,0 +1,77 @@
+[33mcommit eeee6552977896b6bd081d476ed71893a2fc78ed[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mUntestedSavePoint[m[33m, [m[1;31morigin/UntestedSavePoint[m[33m)[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Jan 5 23:24:35 2025 -0500
+
+    untested but saving for now, added cojoined spouses
+
+[33mcommit 0cd5b4f1f5c8d7984ca6a272cc6f886909f842c4[m[33m ([m[1;31morigin/TestCheckpoints[m[33m, [m[1;32mTestCheckpoints[m[33m)[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Jan 5 20:33:59 2025 -0500
+
+    New first member UI and Great look for Family Page
+
+[33mcommit 8e013d0638648116d0836a1da9adac293af71de5[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Jan 5 19:46:41 2025 -0500
+
+    Your commit message here
+
+[33mcommit e5e274933427f1eeae516c2e86232023d89cfea2[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Jan 5 19:24:44 2025 -0500
+
+    Updated Memory page
+
+[33mcommit 04cde697341b8237755671e542bcecd7008ed08a[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Jan 5 18:46:26 2025 -0500
+
+    Added Home Page
+
+[33mcommit 90722fb83568dcdb56104ee73eef3ab2aed2d714[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Jan 5 18:25:06 2025 -0500
+
+    Fixed the adding new members error
+
+[33mcommit 1326d06647636ce254d2f3ae549a2c5a6cd9db3c[m[33m ([m[1;31morigin/main[m[33m, [m[1;32mmain[m[33m)[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Wed Jan 1 14:55:04 2025 -0500
+
+    Add profile photo support: Implement photo upload and display in family tree nodes
+
+[33mcommit 848ae20e95704518e38f3a4661d8e2aed626fbe2[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Tue Dec 31 21:10:20 2024 -0500
+
+    Fix invite functionality and memories access: 1. Fixed RLS policies for family_members table 2. Improved invite claiming process 3. Fixed memories page to work with claimed profiles 4. Added proper error handling for invite flow
+
+[33mcommit 50030ffe6b25dbf869d191ce269071a26bcb2d6a[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Dec 22 23:35:07 2024 -0500
+
+    Invite button implemented and Basic linking
+
+[33mcommit fc8c2cd373bf420f02bc9575833cb62376705a8b[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Dec 22 17:27:05 2024 -0500
+
+    new relationship trees formating, tree visual without connections
+
+[33mcommit 1959fdd7f4d6ccbec8f88e5b6aa05ae2b169b54d[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Sun Dec 22 15:37:43 2024 -0500
+
+    Media upload, new relationship trees, but no Tree visualization
+
+[33mcommit 8268c756b4d6847560fb3447852e0d7192fe9b45[m[33m ([m[1;33mtag: [m[1;33mv1.0.0[m[33m)[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Mon Dec 9 20:04:15 2024 -0800
+
+    Fixed ui/ux issues and added new pages
+
+[33mcommit 54181cd74d1a09b40f9ad26a58017858169477fc[m
+Author: Jorgens Remy <jorgensr267@gmail.com>
+Date:   Mon Dec 9 11:14:27 2024 -0800
+
+    Initial commit

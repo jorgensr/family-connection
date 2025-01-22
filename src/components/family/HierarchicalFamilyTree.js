@@ -4,104 +4,100 @@ import ReactFlow, {
   Controls,
   Background,
   useReactFlow,
-  Panel,
-  MarkerType,
   useNodesState,
-  useEdgesState
+  useEdgesState,
+  Handle
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 import { FamilyMemberNode } from './FamilyMemberNode';
-import { calculateFamilyTreeLayout } from '../../utils/familyTreeLayout';
 import { useHotkeys } from 'react-hotkeys-hook';
-import FamilyTreeStart from './FamilyTreeStart';
 
 // Constants for layout
-const DEFAULT_NODE_SIZE = {
-  WIDTH: 200,
-  HEIGHT: 100
-};
+const NODE_WIDTH = 200;
+const NODE_HEIGHT = 100;
 
-const SPACING = {
-  MIN_HORIZONTAL: 20,
-  SPOUSE_GAP: 0,
-  MIN_VERTICAL: 150
-};
-
-// Define edge types and options
+// Basic edge options
 const edgeOptions = {
-  type: 'smoothstep',
-  markerEnd: {
-    type: MarkerType.ArrowClosed,
-  },
-  animated: true,
+  type: 'straight',
+  animated: false,
   style: {
     strokeWidth: 2,
     stroke: '#94a3b8'
   }
 };
 
-const relationshipColors = {
-  spouse: '#ec4899', // pink-500
-  parent: '#22c55e', // green-500
-  child: '#22c55e', // green-500
-  sibling: '#6366f1' // indigo-500
+const SpouseConnector = ({ data }) => (
+  <div style={{ 
+    position: 'relative',
+    width: '24px', 
+    height: '24px',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center'
+  }}>
+    <div style={{
+      position: 'absolute',
+      fontSize: '24px',
+      color: '#ec4899',
+      pointerEvents: 'none',
+      userSelect: 'none',
+      zIndex: 999999
+    }}>
+      ♥
+    </div>
+  </div>
+);
+
+// Add new BiologicalChildrenConnector component
+const BiologicalChildrenConnector = ({ data }) => {
+  return (
+    <div 
+      style={{
+        width: '2px',
+        height: NODE_HEIGHT,
+        backgroundColor: '#94a3b8',
+        position: 'relative'
+      }}
+    >
+      <Handle
+        type="target"
+        position="top"
+        id="target"
+        style={{ opacity: 0 }}
+      />
+      <Handle
+        type="source"
+        position="bottom"
+        id="source"
+        style={{ opacity: 0 }}
+      />
+    </div>
+  );
 };
 
-const getEdgeStyle = (relationship) => {
-  const baseStyle = {
-    animated: false,
-    strokeWidth: 2,
-    strokeDasharray: 'none',
-  };
-
-  switch (relationship) {
-    case 'parent':
-      return {
-        ...baseStyle,
-        stroke: '#8B5CF6',
-        strokeWidth: 3,
-        type: 'smoothstep',
-      };
-    case 'child':
-      return {
-        ...baseStyle,
-        stroke: '#10B981',
-        strokeWidth: 3,
-        type: 'smoothstep',
-      };
-    case 'spouse':
-      return {
-        ...baseStyle,
-        stroke: 'transparent', // Make spouse connection invisible
-        strokeWidth: 0,
-        type: 'straight',
-      };
-    case 'sibling':
-      return {
-        ...baseStyle,
-        stroke: '#F59E0B',
-        strokeWidth: 3,
-        type: 'straight',
-      };
-    default:
-      return {
-        ...baseStyle,
-        stroke: '#9CA3AF',
-        strokeWidth: 2,
-        type: 'straight',
-      };
-  }
-};
-
-// Create edges helper function
-const createEdges = (positions, relationships) => {
-  return relationships.map(rel => ({
-    id: `${rel.member1_id}-${rel.member2_id}`,
-    source: rel.member1_id,
-    target: rel.member2_id,
-    type: rel.relationship_type === 'spouse' ? 'straight' : 'smoothstep',
-    style: getEdgeStyle(rel.relationship_type)
-  }));
+// Add GroupNode component
+const GroupNode = ({ data }) => {
+  return (
+    <div style={{ 
+      width: '100%', 
+      height: '100%',
+      opacity: 0,
+      pointerEvents: 'none'
+    }}>
+      <Handle
+        type="source"
+        position="bottom"
+        id="bottom"
+        style={{ opacity: 0 }}
+      />
+      <Handle
+        type="target"
+        position="top"
+        id="top"
+        style={{ opacity: 0 }}
+      />
+    </div>
+  );
 };
 
 const HierarchicalFamilyTree = ({ 
@@ -112,7 +108,7 @@ const HierarchicalFamilyTree = ({
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
-  const { fitView, getZoom, setViewport } = useReactFlow();
+  const { fitView } = useReactFlow();
   const containerRef = useRef(null);
   const navigate = useNavigate();
 
@@ -121,94 +117,258 @@ const HierarchicalFamilyTree = ({
     navigate(`/family-member/${memberId}`);
   }, [navigate]);
 
-  // Define node types inside component
+  // Define node types
   const nodeTypes = useMemo(() => ({
-    familyMember: FamilyMemberNode
+    familyMember: FamilyMemberNode,
+    spouseConnector: SpouseConnector,
+    biologicalChildrenConnector: BiologicalChildrenConnector,
+    group: GroupNode
   }), []);
 
-  // Memoize expensive calculations
-  const memoizedPositions = useMemo(() => 
-    calculateFamilyTreeLayout(familyMembers, relationships),
-    [familyMembers, relationships]
-  );
+  const calculateLayout = useCallback(() => {
+    if (!familyMembers.length) return;
 
-  const memoizedNodes = useMemo(() => {
-    return memoizedPositions.map(({ member, x, y, isSpouseNode }) => {
-      // Find spouse relationship
-      const spouseRelationship = relationships.find(rel => 
-        rel.relationship_type === 'spouse' && 
-        (rel.member1_id === member.id || rel.member2_id === member.id)
-      );
+    try {
+      // Get container dimensions for initial centering
+      const container = containerRef.current;
+      const containerWidth = container ? container.offsetWidth : window.innerWidth;
+      const containerHeight = container ? container.offsetHeight : window.innerHeight;
 
-      const isSpouse = spouseRelationship !== undefined;
-      const spousePosition = isSpouse ? 
-        (spouseRelationship.member1_id === member.id ? 'left' : 'right') : 
-        undefined;
+      // Calculate total width needed for all members including spouses
+      const spouseCount = relationships.filter(rel => rel.relationship_type === 'spouse').length;
+      const totalWidth = (familyMembers.length - spouseCount) * NODE_WIDTH + spouseCount * NODE_WIDTH * 2;
+      
+      // Calculate starting X to center the entire tree
+      const startX = (containerWidth - totalWidth) / 2;
+      const centerY = (containerHeight - NODE_HEIGHT) / 2;
 
-      // Adjust x position for spouses to be directly adjacent
-      let adjustedX = x;
-      if (isSpouse) {
-        adjustedX = spousePosition === 'left' ? x : x + DEFAULT_NODE_SIZE.WIDTH/250 + SPACING.SPOUSE_GAP/250;
-      }
+      // Create relationship maps
+      const spouseMap = new Map();
+      const childrenMap = new Map(); // Map to store children for each parent
 
-      return {
-        id: member.id,
-        type: 'familyMember',
-        position: { 
-          x: adjustedX * 250, 
-          y: y * 150 
-        },
-        data: { 
-          member,
-          onAdd: onAddMember,
-          onViewProfile: handleViewProfile,
-          isHighlighted: searchQuery ? 
-            `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
-            false,
-          isSpouse,
-          spousePosition
+      relationships.forEach(rel => {
+        if (rel.relationship_type === 'spouse') {
+          spouseMap.set(rel.member1_id, rel.member2_id);
+          spouseMap.set(rel.member2_id, rel.member1_id);
+        } else if (rel.relationship_type === 'child') {
+          // For child relationships, member1 is child and member2 is parent
+          const childId = rel.member1_id;
+          const parentId = rel.member2_id;
+          
+          if (!childrenMap.has(parentId)) {
+            childrenMap.set(parentId, new Set());
+          }
+          childrenMap.get(parentId).add(childId);
         }
-      };
-    });
-  }, [memoizedPositions, searchQuery, onAddMember, relationships, handleViewProfile]);
+      });
 
-  const memoizedEdges = useMemo(() => 
-    createEdges(memoizedPositions, relationships),
-    [memoizedPositions, relationships]
-  );
+      // Create nodes with proper positioning
+      const newNodes = [];
+      const newEdges = [];
+      const processedSpouses = new Set();
+      const processedChildren = new Set();
+      let currentX = startX;
+      let maxY = centerY;
 
-  const updateNodesAndEdges = useCallback(() => {
-    setNodes(memoizedNodes);
-    setEdges(memoizedEdges);
-    
-    setTimeout(() => {
-      fitView({ padding: 0.2, duration: 800 });
-    }, 100);
-  }, [memoizedNodes, memoizedEdges, setNodes, setEdges, fitView]);
+      familyMembers.forEach((member) => {
+        if (!member || !member.id || processedSpouses.has(member.id)) {
+          return;
+        }
 
+        const spouseId = spouseMap.get(member.id);
+        const spouse = spouseId ? familyMembers.find(m => m.id === spouseId) : null;
+
+        if (spouse) {
+          processedSpouses.add(member.id);
+          processedSpouses.add(spouseId);
+          
+          const groupId = `group-${member.id}`;
+          
+          // Add group node first
+          newNodes.push({
+            id: groupId,
+            type: 'group',
+            position: { x: currentX, y: centerY },
+            style: {
+              width: NODE_WIDTH * 2,
+              height: NODE_HEIGHT
+            },
+            data: {
+              label: 'group'
+            }
+          });
+
+          // Add main member node
+          newNodes.push({
+            id: member.id,
+            type: 'familyMember',
+            position: { x: 0, y: 0 },
+            parentNode: groupId,
+            draggable: false,
+            data: {
+              member,
+              onAdd: onAddMember,
+              onViewProfile: handleViewProfile,
+              isHighlighted: searchQuery ? 
+                `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                false
+            }
+          });
+
+          // Add heart connector
+          newNodes.push({
+            id: `${member.id}-connector`,
+            type: 'spouseConnector',
+            position: { 
+              x: NODE_WIDTH - 12,
+              y: NODE_HEIGHT/2 - 12
+            },
+            parentNode: groupId,
+            draggable: false,
+            zIndex: 999999,
+            data: {}
+          });
+
+          // Add spouse node
+          newNodes.push({
+            id: spouseId,
+            type: 'familyMember',
+            position: { x: NODE_WIDTH, y: 0 },
+            parentNode: groupId,
+            draggable: false,
+            data: {
+              member: spouse,
+              onAdd: onAddMember,
+              onViewProfile: handleViewProfile,
+              isHighlighted: searchQuery ? 
+                `${spouse.first_name} ${spouse.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                false
+            }
+          });
+
+          // Check for children of this couple
+          const memberChildren = childrenMap.get(member.id) || new Set();
+          const spouseChildren = childrenMap.get(spouseId) || new Set();
+          const coupleChildren = new Set([...memberChildren, ...spouseChildren]);
+
+          if (coupleChildren.size > 0) {
+            // Add biological children connector
+            const connectorId = `${groupId}-children-connector`;
+            newNodes.push({
+              id: connectorId,
+              type: 'biologicalChildrenConnector',
+              position: { 
+                x: currentX + NODE_WIDTH - 2, // Center under the heart
+                y: centerY + NODE_HEIGHT
+              },
+              draggable: false,
+              zIndex: 1,
+              data: {}
+            });
+
+            // Position children
+            const childrenArray = Array.from(coupleChildren);
+            const totalChildrenWidth = childrenArray.length * NODE_WIDTH;
+            const childStartX = currentX + NODE_WIDTH - (totalChildrenWidth / 2);
+            const childY = centerY + NODE_HEIGHT * 2;
+
+            childrenArray.forEach((childId, index) => {
+              if (!processedChildren.has(childId)) {
+                const child = familyMembers.find(m => m.id === childId);
+                if (child) {
+                  processedChildren.add(childId);
+                  const childX = childStartX + (index * NODE_WIDTH);
+                  
+                  newNodes.push({
+                    id: childId,
+                    type: 'familyMember',
+                    position: { x: childX, y: childY },
+                    draggable: false,
+                    data: {
+                      member: child,
+                      onAdd: onAddMember,
+                      onViewProfile: handleViewProfile,
+                      isHighlighted: searchQuery ? 
+                        `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                        false
+                    }
+                  });
+
+                  maxY = Math.max(maxY, childY + NODE_HEIGHT);
+                }
+              }
+            });
+
+            // Add edge from group to biological children connector
+            newEdges.push({
+              id: `${groupId}-to-${connectorId}`,
+              source: groupId,
+              target: connectorId,
+              sourceHandle: 'bottom',
+              targetHandle: 'target',
+              type: 'straight',
+              style: { stroke: '#94a3b8', strokeWidth: 2 }
+            });
+
+            // Add edges from connector to each child
+            childrenArray.forEach((childId) => {
+              newEdges.push({
+                id: `${connectorId}-to-${childId}`,
+                source: connectorId,
+                target: childId,
+                sourceHandle: 'source',
+                targetHandle: 'top',
+                type: 'straight',
+                style: { stroke: '#94a3b8', strokeWidth: 2 }
+              });
+            });
+          }
+
+          currentX += NODE_WIDTH * 2;
+        } else {
+          // Single member without spouse
+          newNodes.push({
+            id: member.id,
+            type: 'familyMember',
+            position: { x: currentX, y: centerY },
+            data: {
+              member,
+              onAdd: onAddMember,
+              onViewProfile: handleViewProfile,
+              isHighlighted: searchQuery ? 
+                `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                false
+            }
+          });
+          currentX += NODE_WIDTH;
+        }
+      });
+
+      setNodes(newNodes);
+      setEdges(newEdges);
+    } catch (error) {
+      console.error('Error calculating layout:', error);
+    }
+  }, [familyMembers, relationships, onAddMember, handleViewProfile, searchQuery, setNodes, setEdges]);
+
+  // Calculate layout when members change
   useEffect(() => {
-    updateNodesAndEdges();
-  }, [updateNodesAndEdges]);
+    calculateLayout();
+  }, [calculateLayout]);
+
+  // Fit view after layout is calculated
+  useEffect(() => {
+    if (nodes.length > 0) {
+      setTimeout(() => {
+        fitView({ padding: 0.2, duration: 800 });
+      }, 100);
+    }
+  }, [nodes, fitView]);
 
   // Keyboard shortcuts
   useHotkeys('r', () => {
     fitView({ padding: 0.2, duration: 800 });
   }, [fitView]);
-
-  useHotkeys('=', () => {
-    const zoom = getZoom();
-    setViewport({ zoom: Math.min(zoom + 0.2, 2) }, { duration: 300 });
-  }, [getZoom, setViewport]);
-
-  useHotkeys('-', () => {
-    const zoom = getZoom();
-    setViewport({ zoom: Math.max(zoom - 0.2, 0.1) }, { duration: 300 });
-  }, [getZoom, setViewport]);
-
-  // If there are no family members, show the start page
-  if (familyMembers.length === 0) {
-    return <FamilyTreeStart onStartTree={onAddMember} />;
-  }
 
   return (
     <div ref={containerRef} className="w-full h-full">
@@ -218,10 +378,8 @@ const HierarchicalFamilyTree = ({
         onNodesChange={onNodesChange}
         onEdgesChange={onEdgesChange}
         nodeTypes={nodeTypes}
-        fitView
-        minZoom={0.1}
-        maxZoom={2}
         defaultEdgeOptions={edgeOptions}
+        fitView
         className="bg-gray-50"
       >
         <Background 
@@ -234,19 +392,6 @@ const HierarchicalFamilyTree = ({
           className="bg-white shadow-lg border-none rounded-lg"
           showInteractive={false}
         />
-        <Panel position="bottom-center" className="bg-white rounded-lg shadow-lg p-2 mb-4">
-          <div className="flex items-center space-x-4 text-sm text-gray-600">
-            {Object.entries(relationshipColors).map(([type, color]) => (
-              <div key={type} className="flex items-center space-x-2">
-                <div 
-                  className="w-4 h-0.5 rounded-full" 
-                  style={{ backgroundColor: color }}
-                />
-                <span className="capitalize">{type}</span>
-              </div>
-            ))}
-          </div>
-        </Panel>
       </ReactFlow>
     </div>
   );
