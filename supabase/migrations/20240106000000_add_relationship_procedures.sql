@@ -17,7 +17,7 @@ CREATE OR REPLACE FUNCTION add_family_relationship(
 ) RETURNS void AS $$
 BEGIN
   -- Validate relationship type
-  IF p_relationship_type NOT IN ('parent', 'child', 'spouse') THEN
+  IF p_relationship_type NOT IN ('child', 'spouse') THEN
     RAISE EXCEPTION 'Invalid relationship type: %', p_relationship_type;
   END IF;
 
@@ -45,7 +45,7 @@ BEGIN
   -- Validate relationship types and UUIDs
   IF EXISTS (
     SELECT 1 FROM unnest(relationships) r
-    WHERE r.relationship_type NOT IN ('parent', 'child', 'spouse')
+    WHERE r.relationship_type NOT IN ('child', 'spouse')
        OR r.id IS NULL
        OR r.family_id IS NULL
        OR r.member1_id IS NULL

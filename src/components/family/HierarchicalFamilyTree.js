@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef, useMemo } from 'react';
+import React, { useCallback, useEffect, useRef, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import ReactFlow, { 
   Controls,
@@ -11,10 +11,12 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import { FamilyMemberNode } from './FamilyMemberNode';
 import { useHotkeys } from 'react-hotkeys-hook';
+import { ChevronDoubleDownIcon, ChevronDoubleUpIcon } from '@heroicons/react/24/outline';
 
 // Constants for layout
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 100;
+const VERTICAL_SPACING = 100; // Add spacing constant for vertical gaps
 
 // Basic edge options
 const edgeOptions = {
@@ -49,13 +51,13 @@ const SpouseConnector = ({ data }) => (
 );
 
 // Add new BiologicalChildrenConnector component
-const BiologicalChildrenConnector = ({ data }) => {
+const BiologicalChildrenConnector = ({ data, onToggleCollapse, isCollapsed }) => {
   return (
     <div 
       style={{
         width: '2px',
-        height: NODE_HEIGHT,
-        backgroundColor: '#94a3b8',
+        height: isCollapsed ? '24px' : NODE_HEIGHT, // Give some height for the button when collapsed
+        backgroundColor: isCollapsed ? 'transparent' : '#94a3b8',
         position: 'relative'
       }}
     >
@@ -65,12 +67,28 @@ const BiologicalChildrenConnector = ({ data }) => {
         id="target"
         style={{ opacity: 0 }}
       />
-      <Handle
-        type="source"
-        position="bottom"
-        id="source"
-        style={{ opacity: 0 }}
-      />
+      {!isCollapsed && (
+        <Handle
+          type="source"
+          position="bottom"
+          id="source"
+          style={{ opacity: 0 }}
+        />
+      )}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onToggleCollapse();
+        }}
+        className="absolute top-0 left-1/2 transform -translate-x-1/2 -translate-y-3 p-1 rounded-full bg-white shadow-lg hover:bg-gray-50 transition-colors"
+        title={isCollapsed ? "Expand children" : "Collapse children"}
+      >
+        {isCollapsed ? (
+          <ChevronDoubleDownIcon className="h-5 w-5 text-gray-400" />
+        ) : (
+          <ChevronDoubleUpIcon className="h-5 w-5 text-gray-400" />
+        )}
+      </button>
     </div>
   );
 };
@@ -108,6 +126,7 @@ const HierarchicalFamilyTree = ({
 }) => {
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [collapsedNodes, setCollapsedNodes] = useState(new Set());
   const { fitView } = useReactFlow();
   const containerRef = useRef(null);
   const navigate = useNavigate();
@@ -117,52 +136,84 @@ const HierarchicalFamilyTree = ({
     navigate(`/family-member/${memberId}`);
   }, [navigate]);
 
-  // Define node types
+  // Add collapse/expand handler
+  const handleToggleCollapse = useCallback((nodeId) => {
+    setCollapsedNodes(prev => {
+      const newCollapsed = new Set(prev);
+      if (newCollapsed.has(nodeId)) {
+        newCollapsed.delete(nodeId);
+      } else {
+        newCollapsed.add(nodeId);
+      }
+      return newCollapsed;
+    });
+  }, []);
+
+  // Update nodeTypes with collapse functionality
   const nodeTypes = useMemo(() => ({
-    familyMember: FamilyMemberNode,
+    familyMember: (props) => (
+      <FamilyMemberNode 
+        {...props}
+      />
+    ),
     spouseConnector: SpouseConnector,
-    biologicalChildrenConnector: BiologicalChildrenConnector,
+    biologicalChildrenConnector: (props) => (
+      <BiologicalChildrenConnector 
+        {...props}
+        onToggleCollapse={() => handleToggleCollapse(props.data.parentId)}
+        isCollapsed={collapsedNodes.has(props.data.parentId)}
+      />
+    ),
     group: GroupNode
-  }), []);
+  }), [handleToggleCollapse, collapsedNodes]);
 
   const calculateLayout = useCallback(() => {
     if (!familyMembers.length) return;
 
     try {
+      console.log('Starting layout calculation:', {
+        familyMembersCount: familyMembers.length,
+        relationshipsCount: relationships.length
+      });
+
       // Get container dimensions for initial centering
       const container = containerRef.current;
       const containerWidth = container ? container.offsetWidth : window.innerWidth;
       const containerHeight = container ? container.offsetHeight : window.innerHeight;
 
-      // Calculate total width needed for all members including spouses
-      const spouseCount = relationships.filter(rel => rel.relationship_type === 'spouse').length;
-      const totalWidth = (familyMembers.length - spouseCount) * NODE_WIDTH + spouseCount * NODE_WIDTH * 2;
-      
-      // Calculate starting X to center the entire tree
-      const startX = (containerWidth - totalWidth) / 2;
-      const centerY = (containerHeight - NODE_HEIGHT) / 2;
-
       // Create relationship maps
       const spouseMap = new Map();
-      const childrenMap = new Map(); // Map to store children for each parent
+      const childrenMap = new Map();
+      const parentMap = new Map(); // Track who are parents
 
+      // First pass: Build relationship maps
       relationships.forEach(rel => {
         if (rel.relationship_type === 'spouse') {
           spouseMap.set(rel.member1_id, rel.member2_id);
           spouseMap.set(rel.member2_id, rel.member1_id);
-        } else if (rel.relationship_type === 'child') {
-          // For child relationships, member1 is child and member2 is parent
-          const childId = rel.member1_id;
-          const parentId = rel.member2_id;
+        } else if (rel.relationship_type === 'parent') {
+          const parentId = rel.member1_id;
+          const childId = rel.member2_id;
           
           if (!childrenMap.has(parentId)) {
             childrenMap.set(parentId, new Set());
           }
           childrenMap.get(parentId).add(childId);
+          parentMap.set(childId, true); // Mark this member as someone's child
         }
       });
 
-      // Create nodes with proper positioning
+      // Calculate total width needed for root level members (non-children)
+      const rootMembers = familyMembers.filter(m => !parentMap.has(m.id));
+      const spouseCount = relationships.filter(rel => 
+        rel.relationship_type === 'spouse' && 
+        !parentMap.has(rel.member1_id)
+      ).length;
+
+      const totalWidth = (rootMembers.length - spouseCount) * NODE_WIDTH + spouseCount * NODE_WIDTH * 2;
+      const startX = (containerWidth - totalWidth) / 2;
+      const centerY = (containerHeight - NODE_HEIGHT) / 2;
+
       const newNodes = [];
       const newEdges = [];
       const processedSpouses = new Set();
@@ -170,18 +221,27 @@ const HierarchicalFamilyTree = ({
       let currentX = startX;
       let maxY = centerY;
 
-      familyMembers.forEach((member) => {
+      // Only process root level members in the main loop
+      rootMembers.forEach((member) => {
         if (!member || !member.id || processedSpouses.has(member.id)) {
           return;
         }
 
         const spouseId = spouseMap.get(member.id);
         const spouse = spouseId ? familyMembers.find(m => m.id === spouseId) : null;
-
+        
+        console.log('Processing member:', {
+          memberId: member.id,
+          name: `${member.first_name} ${member.last_name}`,
+          hasSpouse: Boolean(spouse),
+          spouseId,
+          currentX
+        });
+        
         if (spouse) {
           processedSpouses.add(member.id);
           processedSpouses.add(spouseId);
-          
+
           const groupId = `group-${member.id}`;
           
           // Add group node first
@@ -198,7 +258,7 @@ const HierarchicalFamilyTree = ({
             }
           });
 
-          // Add main member node
+          // Add main member node with hasChildren flag
           newNodes.push({
             id: member.id,
             type: 'familyMember',
@@ -209,13 +269,14 @@ const HierarchicalFamilyTree = ({
               member,
               onAdd: onAddMember,
               onViewProfile: handleViewProfile,
+              hasChildren: (childrenMap.get(member.id)?.size > 0) || false,
               isHighlighted: searchQuery ? 
                 `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                 false
             }
           });
 
-          // Add heart connector
+          // Keep existing spouse connector positioning
           newNodes.push({
             id: `${member.id}-connector`,
             type: 'spouseConnector',
@@ -229,7 +290,7 @@ const HierarchicalFamilyTree = ({
             data: {}
           });
 
-          // Add spouse node
+          // Add spouse node with hasChildren flag
           newNodes.push({
             id: spouseId,
             type: 'familyMember',
@@ -240,6 +301,7 @@ const HierarchicalFamilyTree = ({
               member: spouse,
               onAdd: onAddMember,
               onViewProfile: handleViewProfile,
+              hasChildren: (childrenMap.get(spouseId)?.size > 0) || false,
               isHighlighted: searchQuery ? 
                 `${spouse.first_name} ${spouse.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                 false
@@ -252,81 +314,95 @@ const HierarchicalFamilyTree = ({
           const coupleChildren = new Set([...memberChildren, ...spouseChildren]);
 
           if (coupleChildren.size > 0) {
+            // Calculate center position for the biological connector
+            const groupCenterX = currentX + NODE_WIDTH; // Center of the couple's group
+            const connectorY = centerY + NODE_HEIGHT;
+
             // Add biological children connector
             const connectorId = `${groupId}-children-connector`;
             newNodes.push({
               id: connectorId,
               type: 'biologicalChildrenConnector',
               position: { 
-                x: currentX + NODE_WIDTH - 2, // Center under the heart
-                y: centerY + NODE_HEIGHT
+                x: groupCenterX,
+                y: connectorY
               },
               draggable: false,
               zIndex: 1,
-              data: {}
-            });
-
-            // Position children
-            const childrenArray = Array.from(coupleChildren);
-            const totalChildrenWidth = childrenArray.length * NODE_WIDTH;
-            const childStartX = currentX + NODE_WIDTH - (totalChildrenWidth / 2);
-            const childY = centerY + NODE_HEIGHT * 2;
-
-            childrenArray.forEach((childId, index) => {
-              if (!processedChildren.has(childId)) {
-                const child = familyMembers.find(m => m.id === childId);
-                if (child) {
-                  processedChildren.add(childId);
-                  const childX = childStartX + (index * NODE_WIDTH);
-                  
-                  newNodes.push({
-                    id: childId,
-                    type: 'familyMember',
-                    position: { x: childX, y: childY },
-                    draggable: false,
-                    data: {
-                      member: child,
-                      onAdd: onAddMember,
-                      onViewProfile: handleViewProfile,
-                      isHighlighted: searchQuery ? 
-                        `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
-                        false
-                    }
-                  });
-
-                  maxY = Math.max(maxY, childY + NODE_HEIGHT);
-                }
+              data: {
+                parentId: member.id
               }
             });
 
-            // Add edge from group to biological children connector
-            newEdges.push({
-              id: `${groupId}-to-${connectorId}`,
-              source: groupId,
-              target: connectorId,
-              sourceHandle: 'bottom',
-              targetHandle: 'target',
-              type: 'straight',
-              style: { stroke: '#94a3b8', strokeWidth: 2 }
-            });
+            // Only add children and edges if not collapsed
+            if (!collapsedNodes.has(member.id) && !collapsedNodes.has(spouseId)) {
+              // Position children - keep existing positioning logic
+              const childrenArray = Array.from(coupleChildren);
+              const totalChildrenWidth = childrenArray.length * NODE_WIDTH;
+              const startChildX = groupCenterX - (totalChildrenWidth / 2);
+              const childY = connectorY + NODE_HEIGHT + VERTICAL_SPACING;
 
-            // Add edges from connector to each child
-            childrenArray.forEach((childId) => {
+              childrenArray.forEach((childId, index) => {
+                if (!processedChildren.has(childId)) {
+                  const child = familyMembers.find(m => m.id === childId);
+                  if (child) {
+                    processedChildren.add(childId);
+                    
+                    // Calculate child position
+                    const childX = startChildX + (index * NODE_WIDTH);
+                    
+                    newNodes.push({
+                      id: childId,
+                      type: 'familyMember',
+                      position: { 
+                        x: childX,
+                        y: childY
+                      },
+                      draggable: false,
+                      data: {
+                        member: child,
+                        onAdd: onAddMember,
+                        onViewProfile: handleViewProfile,
+                        hasChildren: (childrenMap.get(childId)?.size > 0) || false,
+                        isHighlighted: searchQuery ? 
+                          `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                          false
+                      }
+                    });
+
+                    maxY = Math.max(maxY, childY + NODE_HEIGHT);
+                  }
+                }
+              });
+
+              // Keep existing edge logic
               newEdges.push({
-                id: `${connectorId}-to-${childId}`,
-                source: connectorId,
-                target: childId,
-                sourceHandle: 'source',
-                targetHandle: 'top',
+                id: `${groupId}-to-${connectorId}`,
+                source: groupId,
+                target: connectorId,
+                sourceHandle: 'bottom',
+                targetHandle: 'target',
                 type: 'straight',
                 style: { stroke: '#94a3b8', strokeWidth: 2 }
               });
-            });
+
+              childrenArray.forEach((childId) => {
+                newEdges.push({
+                  id: `${connectorId}-to-${childId}`,
+                  source: connectorId,
+                  target: childId,
+                  sourceHandle: 'source',
+                  targetHandle: 'top',
+                  type: 'straight',
+                  style: { stroke: '#94a3b8', strokeWidth: 2 }
+                });
+              });
+            }
           }
 
-          currentX += NODE_WIDTH * 2;
+          currentX += NODE_WIDTH * 2 + 20; // Keep existing spacing between family groups
         } else {
-          // Single member without spouse
+          // Single member without spouse - add hasChildren flag
           newNodes.push({
             id: member.id,
             type: 'familyMember',
@@ -335,6 +411,7 @@ const HierarchicalFamilyTree = ({
               member,
               onAdd: onAddMember,
               onViewProfile: handleViewProfile,
+              hasChildren: (childrenMap.get(member.id)?.size > 0) || false,
               isHighlighted: searchQuery ? 
                 `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                 false
@@ -349,7 +426,7 @@ const HierarchicalFamilyTree = ({
     } catch (error) {
       console.error('Error calculating layout:', error);
     }
-  }, [familyMembers, relationships, onAddMember, handleViewProfile, searchQuery, setNodes, setEdges]);
+  }, [familyMembers, relationships, onAddMember, handleViewProfile, searchQuery, collapsedNodes, setNodes, setEdges]);
 
   // Calculate layout when members change
   useEffect(() => {

@@ -12,7 +12,7 @@ DECLARE
     is_circular boolean;
 BEGIN
     -- Validate relationship type
-    IF NEW.relationship_type NOT IN ('parent', 'child', 'spouse') THEN
+    IF NEW.relationship_type NOT IN ('child', 'spouse') THEN
         RAISE EXCEPTION 'Invalid relationship type: %', NEW.relationship_type;
     END IF;
 
@@ -27,39 +27,30 @@ BEGIN
     AND id != NEW.id;
 
     IF FOUND THEN
-        -- Allow reciprocal relationships (parent-child pairs)
-        IF (
-            (existing_relationship.relationship_type = 'parent' AND NEW.relationship_type = 'child') OR
-            (existing_relationship.relationship_type = 'child' AND NEW.relationship_type = 'parent')
-        ) THEN
-            -- These are valid reciprocal relationships
-            RETURN NEW;
-        ELSE
-            RAISE EXCEPTION 'Relationship already exists between these members';
-        END IF;
+        RAISE EXCEPTION 'Relationship already exists between these members';
     END IF;
 
-    -- For parent relationships, check for circular references
-    IF NEW.relationship_type = 'parent' THEN
+    -- For child relationships, check for circular references
+    IF NEW.relationship_type = 'child' THEN
         WITH RECURSIVE ancestry(ancestor_id, descendant_id, depth) AS (
-            -- Base case: direct parent relationships
+            -- Base case: direct child relationships
             SELECT member1_id, member2_id, 1
             FROM family_relationships
-            WHERE relationship_type = 'parent'
+            WHERE relationship_type = 'child'
             AND family_id = NEW.family_id
             UNION ALL
-            -- Recursive case: follow the parent chain
+            -- Recursive case: follow the child chain
             SELECT fr.member1_id, a.descendant_id, a.depth + 1
             FROM family_relationships fr
             JOIN ancestry a ON fr.member2_id = a.ancestor_id
-            WHERE fr.relationship_type = 'parent'
+            WHERE fr.relationship_type = 'child'
             AND fr.family_id = NEW.family_id
             AND depth < 20
         )
         SELECT EXISTS (
             SELECT 1 FROM ancestry
-            WHERE ancestor_id = NEW.member2_id
-            AND descendant_id = NEW.member1_id
+            WHERE ancestor_id = NEW.member1_id
+            AND descendant_id = NEW.member2_id
         ) INTO is_circular;
 
         IF is_circular THEN

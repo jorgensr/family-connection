@@ -79,20 +79,20 @@ const addFamilyMember = async (memberData) => {
       // Create parent-child relationships
       const relationships = [];
       
-      // First parent relationship
+      // First parent relationship - using 'child' type consistently
       relationships.push({
-        member1_id: relatedMemberId,
-        member2_id: firstParent.id,
-        relationship_type: 'parent',
+        member1_id: relatedMemberId,  // This is the child (James)
+        member2_id: firstParent.id,   // This is the parent
+        relationship_type: 'child',    // Changed from 'parent' to 'child' for consistency
         family_id: familyId
       });
 
       // Second parent relationship if exists
       if (secondParentId) {
         relationships.push({
-          member1_id: relatedMemberId,
-          member2_id: secondParentId,
-          relationship_type: 'parent',
+          member1_id: relatedMemberId,  // This is the child (James)
+          member2_id: secondParentId,   // This is the second parent
+          relationship_type: 'child',    // Changed from 'parent' to 'child' for consistency
           family_id: familyId
         });
       }
