@@ -110,29 +110,29 @@ function ClaimInvite() {
       )}
 
       {!urlToken && (
-        <form onSubmit={handleClaim} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">Invite Token</label>
-            <input
-              type="text"
-              className="mt-1 block w-full border rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
-              value={inviteToken}
-              onChange={(e) => {
-                setInviteToken(e.target.value);
-                if (error) setError(null);
-              }}
-              placeholder="Paste your invite token here"
-              disabled={loading}
-            />
-          </div>
-          <button
-            type="submit"
-            disabled={loading || !inviteToken}
-            className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            {loading ? 'Claiming...' : 'Claim Profile'}
-          </button>
-        </form>
+      <form onSubmit={handleClaim} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700">Invite Token</label>
+          <input
+            type="text"
+            className="mt-1 block w-full border rounded-md shadow-sm p-2 focus:ring-blue-500 focus:border-blue-500"
+            value={inviteToken}
+            onChange={(e) => {
+              setInviteToken(e.target.value);
+              if (error) setError(null);
+            }}
+            placeholder="Paste your invite token here"
+            disabled={loading}
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={loading || !inviteToken}
+          className="w-full bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          {loading ? 'Claiming...' : 'Claim Profile'}
+        </button>
+      </form>
       )}
 
       {loading && !error && (

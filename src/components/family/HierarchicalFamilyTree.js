@@ -16,7 +16,12 @@ import { ChevronDoubleDownIcon, ChevronDoubleUpIcon } from '@heroicons/react/24/
 // Constants for layout
 const NODE_WIDTH = 200;
 const NODE_HEIGHT = 100;
-const VERTICAL_SPACING = 100; // Add spacing constant for vertical gaps
+const HORIZONTAL_SPACING = 20;
+const COUPLE_WIDTH = NODE_WIDTH * 2;
+const BASE_GENERATION_GAP = 120; // Base vertical gap between generations
+const GENERATION_SPACING_INCREASE = 20; // Additional spacing per generation depth
+const CONNECTOR_HEIGHT = 40;
+const MIN_GROUP_SPACING = 40; // Minimum spacing between family groups
 
 // Basic edge options
 const edgeOptions = {
@@ -68,12 +73,12 @@ const BiologicalChildrenConnector = ({ data, onToggleCollapse, isCollapsed }) =>
         style={{ opacity: 0 }}
       />
       {!isCollapsed && (
-        <Handle
-          type="source"
-          position="bottom"
-          id="source"
-          style={{ opacity: 0 }}
-        />
+      <Handle
+        type="source"
+        position="bottom"
+        id="source"
+        style={{ opacity: 0 }}
+      />
       )}
       <button
         onClick={(e) => {
@@ -116,6 +121,11 @@ const GroupNode = ({ data }) => {
       />
     </div>
   );
+};
+
+// Add helper function for calculating generation-based spacing
+const getGenerationSpacing = (generation) => {
+  return BASE_GENERATION_GAP + (generation * GENERATION_SPACING_INCREASE);
 };
 
 const HierarchicalFamilyTree = ({ 
@@ -179,12 +189,13 @@ const HierarchicalFamilyTree = ({
       // Get container dimensions for initial centering
       const container = containerRef.current;
       const containerWidth = container ? container.offsetWidth : window.innerWidth;
-      const containerHeight = container ? container.offsetHeight : window.innerHeight;
 
       // Create relationship maps
       const spouseMap = new Map();
       const childrenMap = new Map();
       const parentMap = new Map(); // Track who are parents
+      const generationLevelMap = new Map(); // Track generation levels
+      const familyBranchMap = new Map(); // Track family branches
 
       // First pass: Build relationship maps
       relationships.forEach(rel => {
@@ -199,27 +210,66 @@ const HierarchicalFamilyTree = ({
             childrenMap.set(parentId, new Set());
           }
           childrenMap.get(parentId).add(childId);
-          parentMap.set(childId, true); // Mark this member as someone's child
+          parentMap.set(childId, true); // Keep existing parent tracking
+
+          // Track family branches
+          if (!familyBranchMap.has(parentId)) {
+            familyBranchMap.set(parentId, new Set([parentId]));
+          }
+          familyBranchMap.get(parentId).add(childId);
         }
       });
 
-      // Calculate total width needed for root level members (non-children)
+      // Second pass: Calculate generation levels
+      const calculateGenerations = (memberId, level = 0) => {
+        generationLevelMap.set(memberId, level);
+        
+        // Process spouse at same generation
+        const spouseId = spouseMap.get(memberId);
+        if (spouseId) {
+          generationLevelMap.set(spouseId, level);
+        }
+
+        // Process children at next generation
+        const children = childrenMap.get(memberId) || new Set();
+        children.forEach(childId => {
+          if (!generationLevelMap.has(childId)) {
+            calculateGenerations(childId, level + 1);
+          }
+        });
+      };
+
+      // Start generation calculation from root members
       const rootMembers = familyMembers.filter(m => !parentMap.has(m.id));
+      rootMembers.forEach(member => calculateGenerations(member.id));
+
+      // Log relationship information for debugging
+      console.log('Family structure:', {
+        spouseCount: spouseMap.size / 2,
+        childrenCount: Array.from(childrenMap.values()).reduce((acc, set) => acc + set.size, 0),
+        generationCount: new Set(generationLevelMap.values()).size,
+        rootMembersCount: rootMembers.length
+      });
+
+      // Calculate total width needed for root level members
       const spouseCount = relationships.filter(rel => 
         rel.relationship_type === 'spouse' && 
         !parentMap.has(rel.member1_id)
       ).length;
 
-      const totalWidth = (rootMembers.length - spouseCount) * NODE_WIDTH + spouseCount * NODE_WIDTH * 2;
+      const totalWidth = (rootMembers.length - spouseCount) * NODE_WIDTH + 
+                        spouseCount * COUPLE_WIDTH + 
+                        (rootMembers.length - 1) * HORIZONTAL_SPACING;
+      
       const startX = (containerWidth - totalWidth) / 2;
-      const centerY = (containerHeight - NODE_HEIGHT) / 2;
+      const startY = 50; // Start higher on the page
 
       const newNodes = [];
       const newEdges = [];
       const processedSpouses = new Set();
       const processedChildren = new Set();
       let currentX = startX;
-      let maxY = centerY;
+      let maxY = startY;
 
       // Only process root level members in the main loop
       rootMembers.forEach((member) => {
@@ -229,7 +279,7 @@ const HierarchicalFamilyTree = ({
 
         const spouseId = spouseMap.get(member.id);
         const spouse = spouseId ? familyMembers.find(m => m.id === spouseId) : null;
-        
+
         console.log('Processing member:', {
           memberId: member.id,
           name: `${member.first_name} ${member.last_name}`,
@@ -243,14 +293,14 @@ const HierarchicalFamilyTree = ({
           processedSpouses.add(spouseId);
 
           const groupId = `group-${member.id}`;
-          
+
           // Add group node first
           newNodes.push({
             id: groupId,
             type: 'group',
-            position: { x: currentX, y: centerY },
+            position: { x: currentX, y: maxY },
             style: {
-              width: NODE_WIDTH * 2,
+              width: COUPLE_WIDTH,
               height: NODE_HEIGHT
             },
             data: {
@@ -316,7 +366,7 @@ const HierarchicalFamilyTree = ({
           if (coupleChildren.size > 0) {
             // Calculate center position for the biological connector
             const groupCenterX = currentX + NODE_WIDTH; // Center of the couple's group
-            const connectorY = centerY + NODE_HEIGHT;
+            const connectorY = maxY + NODE_HEIGHT;
 
             // Add biological children connector
             const connectorId = `${groupId}-children-connector`;
@@ -336,26 +386,207 @@ const HierarchicalFamilyTree = ({
 
             // Only add children and edges if not collapsed
             if (!collapsedNodes.has(member.id) && !collapsedNodes.has(spouseId)) {
-              // Position children - keep existing positioning logic
               const childrenArray = Array.from(coupleChildren);
-              const totalChildrenWidth = childrenArray.length * NODE_WIDTH;
-              const startChildX = groupCenterX - (totalChildrenWidth / 2);
-              const childY = connectorY + NODE_HEIGHT + VERTICAL_SPACING;
+              const childrenWithSpouses = childrenArray.filter(childId => spouseMap.has(childId));
+              const singleChildren = childrenArray.filter(childId => !spouseMap.has(childId));
+              
+              // Calculate total width needed with better spacing
+              const totalChildrenWidth = calculateGroupWidth([...childrenWithSpouses, ...singleChildren], spouseMap);
+              
+              // Center children under parent with minimum spacing
+              const startChildX = Math.max(
+                groupCenterX - (totalChildrenWidth / 2),
+                HORIZONTAL_SPACING // Ensure minimum left margin
+              );
+              
+              // Calculate generation-based vertical spacing
+              const generation = generationLevelMap.get(member.id) || 0;
+              const childY = connectorY + CONNECTOR_HEIGHT + getGenerationSpacing(generation + 1);
+              
+              let currentChildX = startChildX;
 
-              childrenArray.forEach((childId, index) => {
+              // Process children with spouses first
+              childrenWithSpouses.forEach(childId => {
                 if (!processedChildren.has(childId)) {
                   const child = familyMembers.find(m => m.id === childId);
                   if (child) {
                     processedChildren.add(childId);
                     
                     // Calculate child position
-                    const childX = startChildX + (index * NODE_WIDTH);
+                    const childX = currentChildX;
+                    const childSpouseId = spouseMap.get(childId);
+                    const childSpouse = childSpouseId ? familyMembers.find(m => m.id === childSpouseId) : null;
+
+                    if (childSpouse && !processedSpouses.has(childSpouseId)) {
+                      // Create a group for the child and their spouse
+                      const childGroupId = `group-${childId}`;
+                      processedSpouses.add(childSpouseId);
+                      
+                      // Add group node
+                      newNodes.push({
+                        id: childGroupId,
+                        type: 'group',
+                        position: { x: childX, y: childY },
+                        style: {
+                          width: COUPLE_WIDTH,
+                          height: NODE_HEIGHT
+                        },
+                        data: { label: 'group' }
+                      });
+
+                      // Add child node in group
+                      newNodes.push({
+                        id: childId,
+                        type: 'familyMember',
+                        position: { x: 0, y: 0 },
+                        parentNode: childGroupId,
+                        draggable: false,
+                        data: {
+                          member: child,
+                          onAdd: onAddMember,
+                          onViewProfile: handleViewProfile,
+                          hasChildren: (childrenMap.get(childId)?.size > 0) || false,
+                          isHighlighted: searchQuery ? 
+                            `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                            false
+                        }
+                      });
+
+                      // Add spouse connector
+                      newNodes.push({
+                        id: `${childId}-connector`,
+                        type: 'spouseConnector',
+                        position: { x: NODE_WIDTH - 12, y: NODE_HEIGHT/2 - 12 },
+                        parentNode: childGroupId,
+                        draggable: false,
+                        zIndex: 999999,
+                        data: {}
+                      });
+
+                      // Add spouse node
+                      newNodes.push({
+                        id: childSpouseId,
+                        type: 'familyMember',
+                        position: { x: NODE_WIDTH, y: 0 },
+                        parentNode: childGroupId,
+                        draggable: false,
+                        data: {
+                          member: childSpouse,
+                          onAdd: onAddMember,
+                          onViewProfile: handleViewProfile,
+                          hasChildren: (childrenMap.get(childSpouseId)?.size > 0) || false,
+                          isHighlighted: searchQuery ? 
+                            `${childSpouse.first_name} ${childSpouse.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                            false
+                        }
+                      });
+
+                      // Process grandchildren if they exist
+                      const childChildren = childrenMap.get(childId) || new Set();
+                      const spouseChildren = childrenMap.get(childSpouseId) || new Set();
+                      const grandchildren = new Set([...childChildren, ...spouseChildren]);
+
+                      if (grandchildren.size > 0 && !collapsedNodes.has(childId)) {
+                        const childConnectorId = `${childGroupId}-children-connector`;
+                        const childConnectorY = childY + NODE_HEIGHT;
+
+                        // Add connector for grandchildren
+                        newNodes.push({
+                          id: childConnectorId,
+                          type: 'biologicalChildrenConnector',
+                          position: { 
+                            x: NODE_WIDTH,
+                            y: childConnectorY
+                          },
+                          draggable: false,
+                          zIndex: 1,
+                          data: {
+                            parentId: childId
+                          }
+                        });
+
+                        // Add edge from child group to connector
+                        newEdges.push({
+                          id: `${childGroupId}-to-${childConnectorId}`,
+                          source: childGroupId,
+                          target: childConnectorId,
+                          sourceHandle: 'bottom',
+                          targetHandle: 'target',
+                          type: 'straight',
+                          style: { stroke: '#94a3b8', strokeWidth: 2 }
+                        });
+
+                        // Position grandchildren
+                        const grandchildrenArray = Array.from(grandchildren);
+                        const totalGrandchildrenWidth = calculateGroupWidth(grandchildrenArray, spouseMap);
+                        const startGrandchildX = childX + NODE_WIDTH - (totalGrandchildrenWidth / 2);
+                        const grandchildGeneration = generationLevelMap.get(childId) || 0;
+                        const grandchildY = childConnectorY + NODE_HEIGHT + getGenerationSpacing(grandchildGeneration + 1);
+
+                        grandchildrenArray.forEach((grandchildId, gIndex) => {
+                          if (!processedChildren.has(grandchildId)) {
+                            const grandchild = familyMembers.find(m => m.id === grandchildId);
+                            if (grandchild) {
+                              processedChildren.add(grandchildId);
+                              
+                              const grandchildX = startGrandchildX + (gIndex * NODE_WIDTH);
+                              
+                              // Add grandchild node
+                              newNodes.push({
+                                id: grandchildId,
+                                type: 'familyMember',
+                                position: { 
+                                  x: grandchildX,
+                                  y: grandchildY
+                                },
+                                draggable: false,
+                                data: {
+                                  member: grandchild,
+                                  onAdd: onAddMember,
+                                  onViewProfile: handleViewProfile,
+                                  hasChildren: (childrenMap.get(grandchildId)?.size > 0) || false,
+                                  isHighlighted: searchQuery ? 
+                                    `${grandchild.first_name} ${grandchild.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+                                    false
+                                }
+                              });
+
+                              // Add edge from connector to grandchild
+                              newEdges.push({
+                                id: `${childConnectorId}-to-${grandchildId}`,
+                                source: childConnectorId,
+                                target: grandchildId,
+                                sourceHandle: 'source',
+                                targetHandle: 'top',
+                                type: 'straight',
+                                style: { stroke: '#94a3b8', strokeWidth: 2 }
+                              });
+
+                              maxY = Math.max(maxY, grandchildY + NODE_HEIGHT);
+                            }
+                          }
+                        });
+                      }
+
+                      currentChildX += COUPLE_WIDTH + Math.max(HORIZONTAL_SPACING, MIN_GROUP_SPACING);
+                    }
+                  }
+                }
+              });
+
+              // Then process single children
+              singleChildren.forEach(childId => {
+                if (!processedChildren.has(childId)) {
+                  const child = familyMembers.find(m => m.id === childId);
+                  if (child) {
+                    processedChildren.add(childId);
                     
+                    // Add single child node
                     newNodes.push({
                       id: childId,
                       type: 'familyMember',
                       position: { 
-                        x: childX,
+                        x: currentChildX,
                         y: childY
                       },
                       draggable: false,
@@ -370,12 +601,12 @@ const HierarchicalFamilyTree = ({
                       }
                     });
 
-                    maxY = Math.max(maxY, childY + NODE_HEIGHT);
+                    currentChildX += NODE_WIDTH + Math.max(HORIZONTAL_SPACING, MIN_GROUP_SPACING);
                   }
                 }
               });
 
-              // Keep existing edge logic
+              // Add edges after all nodes are created
               newEdges.push({
                 id: `${groupId}-to-${connectorId}`,
                 source: groupId,
@@ -387,26 +618,40 @@ const HierarchicalFamilyTree = ({
               });
 
               childrenArray.forEach((childId) => {
-                newEdges.push({
-                  id: `${connectorId}-to-${childId}`,
-                  source: connectorId,
-                  target: childId,
-                  sourceHandle: 'source',
-                  targetHandle: 'top',
-                  type: 'straight',
-                  style: { stroke: '#94a3b8', strokeWidth: 2 }
-                });
+                if (!spouseMap.has(childId)) {
+                  // Only add direct edges for single children
+                  newEdges.push({
+                    id: `${connectorId}-to-${childId}`,
+                    source: connectorId,
+                    target: childId,
+                    sourceHandle: 'source',
+                    targetHandle: 'top',
+                    type: 'straight',
+                    style: { stroke: '#94a3b8', strokeWidth: 2 }
+                  });
+                } else {
+                  // For married children, connect directly to the child node, not the group
+                  newEdges.push({
+                    id: `${connectorId}-to-${childId}`,
+                    source: connectorId,
+                    target: childId,
+                    sourceHandle: 'source',
+                    targetHandle: 'top',
+                    type: 'straight',
+                    style: { stroke: '#94a3b8', strokeWidth: 2 }
+                  });
+                }
               });
             }
           }
 
-          currentX += NODE_WIDTH * 2 + 20; // Keep existing spacing between family groups
+          currentX += NODE_WIDTH * 2 + HORIZONTAL_SPACING; // Keep existing spacing between family groups
         } else {
           // Single member without spouse - add hasChildren flag
           newNodes.push({
             id: member.id,
             type: 'familyMember',
-            position: { x: currentX, y: centerY },
+            position: { x: currentX, y: maxY },
             data: {
               member,
               onAdd: onAddMember,
@@ -446,6 +691,25 @@ const HierarchicalFamilyTree = ({
   useHotkeys('r', () => {
     fitView({ padding: 0.2, duration: 800 });
   }, [fitView]);
+
+  // Calculate total width with better spacing for large groups
+  const calculateGroupWidth = (members, spouseMap) => {
+    let width = 0;
+    let count = 0;
+    members.forEach(memberId => {
+      if (spouseMap.has(memberId)) {
+        width += COUPLE_WIDTH;
+      } else {
+        width += NODE_WIDTH;
+      }
+      count++;
+    });
+    // Add spacing between members
+    if (count > 1) {
+      width += (count - 1) * Math.max(HORIZONTAL_SPACING, MIN_GROUP_SPACING);
+    }
+    return width;
+  };
 
   return (
     <div ref={containerRef} className="w-full h-full">

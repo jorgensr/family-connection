@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, memo, useCallback } from 'react';
 import { Handle, Position } from 'reactflow';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
@@ -10,18 +10,18 @@ import {
   HeartIcon
 } from '@heroicons/react/24/outline';
 
-export function FamilyMemberNode({ data }) {
+export const FamilyMemberNode = memo(({ data }) => {
   const [showDetails, setShowDetails] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const navigate = useNavigate();
 
   const { member, onAdd, isHighlighted, isSpouse, spousePosition } = data;
 
-  const getInitials = (firstName, lastName) => {
+  const getInitials = useCallback((firstName, lastName) => {
     return `${firstName?.[0] || ''}${lastName?.[0] || ''}`.toUpperCase();
-  };
+  }, []);
 
-  const getAge = (birthDate) => {
+  const getAge = useCallback((birthDate) => {
     if (!birthDate) return null;
     const today = new Date();
     const birth = new Date(birthDate);
@@ -31,12 +31,21 @@ export function FamilyMemberNode({ data }) {
       age--;
     }
     return age;
-  };
+  }, []);
 
-  const handleProfileClick = (e) => {
+  const handleProfileClick = useCallback((e) => {
     e.stopPropagation();
     navigate(`/family-member/${member.id}`);
-  };
+  }, [navigate, member.id]);
+
+  const handleAddClick = useCallback((e) => {
+    e.stopPropagation();
+    onAdd(member);
+  }, [onAdd, member]);
+
+  const toggleDetails = useCallback(() => {
+    setShowDetails(prev => !prev);
+  }, []);
 
   const nodeVariants = {
     initial: { scale: 0.9, opacity: 0 },
@@ -124,7 +133,7 @@ export function FamilyMemberNode({ data }) {
               )}
             </div>
             <button
-              onClick={() => setShowDetails(!showDetails)}
+              onClick={toggleDetails}
               className="flex-shrink-0 p-1 rounded-full hover:bg-gray-100 transition-colors"
             >
               {showDetails ? (
@@ -170,10 +179,7 @@ export function FamilyMemberNode({ data }) {
                       View Profile
                     </button>
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onAdd(member);
-                      }}
+                      onClick={handleAddClick}
                       className="inline-flex items-center px-3 py-1.5 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
                     >
                       <PlusIcon className="h-4 w-4 mr-1" />
@@ -202,10 +208,7 @@ export function FamilyMemberNode({ data }) {
                 <UserCircleIcon className="h-4 w-4 text-gray-600" />
               </button>
               <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onAdd(member);
-                }}
+                onClick={handleAddClick}
                 className="p-1 rounded hover:bg-gray-100 transition-colors"
                 title="Add relative"
               >
@@ -218,4 +221,19 @@ export function FamilyMemberNode({ data }) {
       <Handle type="source" position={Position.Bottom} className="w-3 h-3 bg-blue-500" />
     </>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison function for memo
+  const prevMember = prevProps.data.member;
+  const nextMember = nextProps.data.member;
+  
+  return (
+    prevMember.id === nextMember.id &&
+    prevMember.first_name === nextMember.first_name &&
+    prevMember.last_name === nextMember.last_name &&
+    prevMember.birth_date === nextMember.birth_date &&
+    prevMember.profile_picture_url === nextMember.profile_picture_url &&
+    prevProps.data.isHighlighted === nextProps.data.isHighlighted &&
+    prevProps.data.isSpouse === nextProps.data.isSpouse &&
+    prevProps.data.spousePosition === nextProps.data.spousePosition
+  );
+});

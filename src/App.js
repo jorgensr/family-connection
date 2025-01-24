@@ -2,7 +2,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
-import PrivateRoute from './components/PrivateRoute';
+import ProtectedRoute from './components/auth/ProtectedRoute';
 import Login from './pages/Login';
 import FamilyTree from './pages/FamilyTree';
 import FamilyMemories from './pages/FamilyMemories';
@@ -99,33 +99,33 @@ function App() {
               <Route
                 path="/family-tree"
                 element={
-                  <PrivateRoute>
+                  <ProtectedRoute>
                     <FamilyTree />
-                  </PrivateRoute>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/memories"
                 element={
-                  <PrivateRoute>
+                  <ProtectedRoute>
                     <FamilyMemories />
-                  </PrivateRoute>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/profile"
                 element={
-                  <PrivateRoute>
+                  <ProtectedRoute>
                     <Profile />
-                  </PrivateRoute>
+                  </ProtectedRoute>
                 }
               />
               <Route
                 path="/family-member/:memberId"
                 element={
-                  <PrivateRoute>
+                  <ProtectedRoute>
                     <MemberProfilePage />
-                  </PrivateRoute>
+                  </ProtectedRoute>
                 }
               />
               <Route path="/" element={<HomePage />} />

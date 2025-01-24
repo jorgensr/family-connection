@@ -24,9 +24,9 @@ const inviteService = {
       const { error: updateError } = await supabase
         .from('family_members')
         .update({
-          invite_token: inviteToken,
-          invite_token_expires_at: expirationDate.toISOString(),
-          invite_email: email
+        invite_token: inviteToken,
+        invite_token_expires_at: expirationDate.toISOString(),
+        invite_email: email
         })
         .eq('id', memberId);
 
