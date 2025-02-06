@@ -1,3 +1,24 @@
 # https://www.robotstxt.org/robotstxt.html
+# Family Legacy Connection - Search Engine Crawler Rules
+
+# Allow all crawlers
 User-agent: *
-Disallow:
+
+# Private pages that shouldn't be indexed
+Disallow: /admin/
+Disallow: /profile/
+Disallow: /settings/
+Disallow: /invite/
+Disallow: /api/
+
+# Allow public pages
+Allow: /
+Allow: /about
+Allow: /contact
+Allow: /public-memories
+
+# Sitemap location (once you create it)
+Sitemap: https://your-domain.com/sitemap.xml
+
+# Crawl-delay recommendation
+Crawl-delay: 10

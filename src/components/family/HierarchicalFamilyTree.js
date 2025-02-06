@@ -145,20 +145,20 @@ const HierarchicalFamilyTree = ({
   const handleViewProfile = useCallback((memberId) => {
     navigate(`/family-member/${memberId}`);
   }, [navigate]);
-
+  
   // Add collapse/expand handler
   const handleToggleCollapse = useCallback((nodeId) => {
     setCollapsedNodes(prev => {
       const newCollapsed = new Set(prev);
       if (newCollapsed.has(nodeId)) {
         newCollapsed.delete(nodeId);
-      } else {
+    } else {
         newCollapsed.add(nodeId);
-      }
+    }
       return newCollapsed;
-    });
+  });
   }, []);
-
+  
   // Update nodeTypes with collapse functionality
   const nodeTypes = useMemo(() => ({
     familyMember: (props) => (
@@ -179,13 +179,13 @@ const HierarchicalFamilyTree = ({
 
   const calculateLayout = useCallback(() => {
     if (!familyMembers.length) return;
-
+  
     try {
       console.log('Starting layout calculation:', {
         familyMembersCount: familyMembers.length,
         relationshipsCount: relationships.length
       });
-
+      
       // Get container dimensions for initial centering
       const container = containerRef.current;
       const containerWidth = container ? container.offsetWidth : window.innerWidth;
@@ -223,21 +223,21 @@ const HierarchicalFamilyTree = ({
       // Second pass: Calculate generation levels
       const calculateGenerations = (memberId, level = 0) => {
         generationLevelMap.set(memberId, level);
-        
-        // Process spouse at same generation
-        const spouseId = spouseMap.get(memberId);
-        if (spouseId) {
+          
+          // Process spouse at same generation
+          const spouseId = spouseMap.get(memberId);
+          if (spouseId) {
           generationLevelMap.set(spouseId, level);
-        }
-
-        // Process children at next generation
-        const children = childrenMap.get(memberId) || new Set();
+          }
+          
+          // Process children at next generation
+          const children = childrenMap.get(memberId) || new Set();
         children.forEach(childId => {
           if (!generationLevelMap.has(childId)) {
             calculateGenerations(childId, level + 1);
-          }
+        }
         });
-      };
+};
 
       // Start generation calculation from root members
       const rootMembers = familyMembers.filter(m => !parentMap.has(m.id));
@@ -249,18 +249,18 @@ const HierarchicalFamilyTree = ({
         childrenCount: Array.from(childrenMap.values()).reduce((acc, set) => acc + set.size, 0),
         generationCount: new Set(generationLevelMap.values()).size,
         rootMembersCount: rootMembers.length
-      });
+});
 
       // Calculate total width needed for root level members
       const spouseCount = relationships.filter(rel => 
         rel.relationship_type === 'spouse' && 
         !parentMap.has(rel.member1_id)
       ).length;
-
+          
       const totalWidth = (rootMembers.length - spouseCount) * NODE_WIDTH + 
                         spouseCount * COUPLE_WIDTH + 
                         (rootMembers.length - 1) * HORIZONTAL_SPACING;
-      
+
       const startX = (containerWidth - totalWidth) / 2;
       const startY = 50; // Start higher on the page
 
@@ -310,50 +310,50 @@ const HierarchicalFamilyTree = ({
 
           // Add main member node with hasChildren flag
           newNodes.push({
-            id: member.id,
-            type: 'familyMember',
+  id: member.id,
+  type: 'familyMember',
             position: { x: 0, y: 0 },
             parentNode: groupId,
-            draggable: false,
-            data: {
-              member,
+  draggable: false,
+  data: {
+    member,
               onAdd: onAddMember,
               onViewProfile: handleViewProfile,
               hasChildren: (childrenMap.get(member.id)?.size > 0) || false,
               isHighlighted: searchQuery ? 
                 `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                 false
-            }
-          });
+  }
+});
 
           // Keep existing spouse connector positioning
           newNodes.push({
             id: `${member.id}-connector`,
-            type: 'spouseConnector',
-            position: { 
+  type: 'spouseConnector',
+  position: {
               x: NODE_WIDTH - 12,
-              y: NODE_HEIGHT/2 - 12
-            },
+    y: NODE_HEIGHT/2 - 12
+  },
             parentNode: groupId,
-            draggable: false,
-            zIndex: 999999,
-            data: {}
-          });
+  draggable: false,
+  zIndex: 999999,
+  data: {}
+});
 
           // Add spouse node with hasChildren flag
-          newNodes.push({
-            id: spouseId,
-            type: 'familyMember',
+            newNodes.push({
+              id: spouseId,
+              type: 'familyMember',
             position: { x: NODE_WIDTH, y: 0 },
             parentNode: groupId,
             draggable: false,
-            data: {
-              member: spouse,
-              onAdd: onAddMember,
-              onViewProfile: handleViewProfile,
-              hasChildren: (childrenMap.get(spouseId)?.size > 0) || false,
-              isHighlighted: searchQuery ? 
-                `${spouse.first_name} ${spouse.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+              data: {
+                member: spouse,
+                onAdd: onAddMember,
+                onViewProfile: handleViewProfile,
+                hasChildren: (childrenMap.get(spouseId)?.size > 0) || false,
+                isHighlighted: searchQuery ? 
+                  `${spouse.first_name} ${spouse.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                 false
             }
           });
@@ -362,12 +362,12 @@ const HierarchicalFamilyTree = ({
           const memberChildren = childrenMap.get(member.id) || new Set();
           const spouseChildren = childrenMap.get(spouseId) || new Set();
           const coupleChildren = new Set([...memberChildren, ...spouseChildren]);
-
+  
           if (coupleChildren.size > 0) {
             // Calculate center position for the biological connector
             const groupCenterX = currentX + NODE_WIDTH; // Center of the couple's group
             const connectorY = maxY + NODE_HEIGHT;
-
+  
             // Add biological children connector
             const connectorId = `${groupId}-children-connector`;
             newNodes.push({
@@ -383,16 +383,16 @@ const HierarchicalFamilyTree = ({
                 parentId: member.id
               }
             });
-
+  
             // Only add children and edges if not collapsed
             if (!collapsedNodes.has(member.id) && !collapsedNodes.has(spouseId)) {
               const childrenArray = Array.from(coupleChildren);
               const childrenWithSpouses = childrenArray.filter(childId => spouseMap.has(childId));
               const singleChildren = childrenArray.filter(childId => !spouseMap.has(childId));
-              
+  
               // Calculate total width needed with better spacing
               const totalChildrenWidth = calculateGroupWidth([...childrenWithSpouses, ...singleChildren], spouseMap);
-              
+
               // Center children under parent with minimum spacing
               const startChildX = Math.max(
                 groupCenterX - (totalChildrenWidth / 2),
@@ -406,34 +406,34 @@ const HierarchicalFamilyTree = ({
               let currentChildX = startChildX;
 
               // Process children with spouses first
-              childrenWithSpouses.forEach(childId => {
+  childrenWithSpouses.forEach(childId => {
                 if (!processedChildren.has(childId)) {
-                  const child = familyMembers.find(m => m.id === childId);
+    const child = familyMembers.find(m => m.id === childId);
                   if (child) {
                     processedChildren.add(childId);
-                    
+    
                     // Calculate child position
                     const childX = currentChildX;
                     const childSpouseId = spouseMap.get(childId);
                     const childSpouse = childSpouseId ? familyMembers.find(m => m.id === childSpouseId) : null;
-
+      
                     if (childSpouse && !processedSpouses.has(childSpouseId)) {
                       // Create a group for the child and their spouse
                       const childGroupId = `group-${childId}`;
                       processedSpouses.add(childSpouseId);
                       
                       // Add group node
-                      newNodes.push({
+      newNodes.push({
                         id: childGroupId,
-                        type: 'group',
+        type: 'group',
                         position: { x: childX, y: childY },
-                        style: {
-                          width: COUPLE_WIDTH,
-                          height: NODE_HEIGHT
-                        },
-                        data: { label: 'group' }
-                      });
-
+        style: {
+          width: COUPLE_WIDTH,
+          height: NODE_HEIGHT
+        },
+        data: { label: 'group' }
+      });
+      
                       // Add child node in group
                       newNodes.push({
                         id: childId,
@@ -443,25 +443,25 @@ const HierarchicalFamilyTree = ({
                         draggable: false,
                         data: {
                           member: child,
-                          onAdd: onAddMember,
-                          onViewProfile: handleViewProfile,
-                          hasChildren: (childrenMap.get(childId)?.size > 0) || false,
-                          isHighlighted: searchQuery ? 
-                            `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+          onAdd: onAddMember,
+          onViewProfile: handleViewProfile,
+          hasChildren: (childrenMap.get(childId)?.size > 0) || false,
+          isHighlighted: searchQuery ? 
+            `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                             false
-                        }
-                      });
+              }
+            });
 
-                      // Add spouse connector
-                      newNodes.push({
+            // Add spouse connector
+            newNodes.push({
                         id: `${childId}-connector`,
-                        type: 'spouseConnector',
+              type: 'spouseConnector',
                         position: { x: NODE_WIDTH - 12, y: NODE_HEIGHT/2 - 12 },
                         parentNode: childGroupId,
                         draggable: false,
                         zIndex: 999999,
-                        data: {}
-                      });
+              data: {}
+            });
 
                       // Add spouse node
                       newNodes.push({
@@ -478,22 +478,22 @@ const HierarchicalFamilyTree = ({
                           isHighlighted: searchQuery ? 
                             `${childSpouse.first_name} ${childSpouse.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                             false
-                        }
+          }
                       });
 
                       // Process grandchildren if they exist
                       const childChildren = childrenMap.get(childId) || new Set();
                       const spouseChildren = childrenMap.get(childSpouseId) || new Set();
                       const grandchildren = new Set([...childChildren, ...spouseChildren]);
-
+            
                       if (grandchildren.size > 0 && !collapsedNodes.has(childId)) {
                         const childConnectorId = `${childGroupId}-children-connector`;
                         const childConnectorY = childY + NODE_HEIGHT;
 
                         // Add connector for grandchildren
-                        newNodes.push({
+            newNodes.push({
                           id: childConnectorId,
-                          type: 'biologicalChildrenConnector',
+              type: 'biologicalChildrenConnector',
                           position: { 
                             x: NODE_WIDTH,
                             y: childConnectorY
@@ -503,7 +503,7 @@ const HierarchicalFamilyTree = ({
                           data: {
                             parentId: childId
                           }
-                        });
+            });
 
                         // Add edge from child group to connector
                         newEdges.push({
@@ -528,9 +528,9 @@ const HierarchicalFamilyTree = ({
                             const grandchild = familyMembers.find(m => m.id === grandchildId);
                             if (grandchild) {
                               processedChildren.add(grandchildId);
-                              
+      
                               const grandchildX = startGrandchildX + (gIndex * NODE_WIDTH);
-                              
+      
                               // Add grandchild node
                               newNodes.push({
                                 id: grandchildId,
@@ -542,15 +542,15 @@ const HierarchicalFamilyTree = ({
                                 draggable: false,
                                 data: {
                                   member: grandchild,
-                                  onAdd: onAddMember,
-                                  onViewProfile: handleViewProfile,
+          onAdd: onAddMember,
+          onViewProfile: handleViewProfile,
                                   hasChildren: (childrenMap.get(grandchildId)?.size > 0) || false,
-                                  isHighlighted: searchQuery ? 
+          isHighlighted: searchQuery ? 
                                     `${grandchild.first_name} ${grandchild.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                                     false
                                 }
                               });
-
+      
                               // Add edge from connector to grandchild
                               newEdges.push({
                                 id: `${childConnectorId}-to-${grandchildId}`,
@@ -561,26 +561,26 @@ const HierarchicalFamilyTree = ({
                                 type: 'straight',
                                 style: { stroke: '#94a3b8', strokeWidth: 2 }
                               });
-
+      
                               maxY = Math.max(maxY, grandchildY + NODE_HEIGHT);
                             }
                           }
-                        });
-                      }
-
+        });
+      }
+      
                       currentChildX += COUPLE_WIDTH + Math.max(HORIZONTAL_SPACING, MIN_GROUP_SPACING);
                     }
                   }
-                }
-              });
+    }
+  });
 
               // Then process single children
-              singleChildren.forEach(childId => {
+  singleChildren.forEach(childId => {
                 if (!processedChildren.has(childId)) {
-                  const child = familyMembers.find(m => m.id === childId);
-                  if (child) {
+    const child = familyMembers.find(m => m.id === childId);
+    if (child) {
                     processedChildren.add(childId);
-                    
+      
                     // Add single child node
                     newNodes.push({
                       id: childId,
@@ -592,35 +592,35 @@ const HierarchicalFamilyTree = ({
                       draggable: false,
                       data: {
                         member: child,
-                        onAdd: onAddMember,
-                        onViewProfile: handleViewProfile,
-                        hasChildren: (childrenMap.get(childId)?.size > 0) || false,
-                        isHighlighted: searchQuery ? 
-                          `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
-                          false
-                      }
+          onAdd: onAddMember,
+          onViewProfile: handleViewProfile,
+          hasChildren: (childrenMap.get(childId)?.size > 0) || false,
+          isHighlighted: searchQuery ? 
+            `${child.first_name} ${child.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
+            false
+      }
                     });
-
+      
                     currentChildX += NODE_WIDTH + Math.max(HORIZONTAL_SPACING, MIN_GROUP_SPACING);
                   }
-                }
-              });
+    }
+  });
 
               // Add edges after all nodes are created
-              newEdges.push({
+    newEdges.push({
                 id: `${groupId}-to-${connectorId}`,
                 source: groupId,
                 target: connectorId,
-                sourceHandle: 'bottom',
-                targetHandle: 'target',
-                type: 'straight',
-                style: { stroke: '#94a3b8', strokeWidth: 2 }
-              });
+      sourceHandle: 'bottom',
+      targetHandle: 'target',
+      type: 'straight',
+      style: { stroke: '#94a3b8', strokeWidth: 2 }
+    });
 
               childrenArray.forEach((childId) => {
                 if (!spouseMap.has(childId)) {
                   // Only add direct edges for single children
-                  newEdges.push({
+    newEdges.push({
                     id: `${connectorId}-to-${childId}`,
                     source: connectorId,
                     target: childId,
@@ -634,19 +634,19 @@ const HierarchicalFamilyTree = ({
                   newEdges.push({
                     id: `${connectorId}-to-${childId}`,
                     source: connectorId,
-                    target: childId,
-                    sourceHandle: 'source',
-                    targetHandle: 'top',
-                    type: 'straight',
-                    style: { stroke: '#94a3b8', strokeWidth: 2 }
-                  });
+      target: childId,
+      sourceHandle: 'source',
+      targetHandle: 'top',
+      type: 'straight',
+      style: { stroke: '#94a3b8', strokeWidth: 2 }
+    });
                 }
-              });
+  });
             }
           }
 
           currentX += NODE_WIDTH * 2 + HORIZONTAL_SPACING; // Keep existing spacing between family groups
-        } else {
+      } else {
           // Single member without spouse - add hasChildren flag
           newNodes.push({
             id: member.id,
@@ -660,8 +660,8 @@ const HierarchicalFamilyTree = ({
               isHighlighted: searchQuery ? 
                 `${member.first_name} ${member.last_name}`.toLowerCase().includes(searchQuery.toLowerCase()) :
                 false
-            }
-          });
+      }
+    });
           currentX += NODE_WIDTH;
         }
       });

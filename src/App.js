@@ -90,49 +90,49 @@ function App() {
   return (
     <Router>
       <AuthProvider>
-        <div className="min-h-screen bg-gray-100">
-          <Navigation />
-          <main>
-            <Routes>
-              <Route path="/login" element={<Login />} />
-              <Route path="/claim-invite/:inviteToken" element={<ClaimInvite />} />
-              <Route
-                path="/family-tree"
-                element={
-                  <ProtectedRoute>
-                    <FamilyTree />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/memories"
-                element={
-                  <ProtectedRoute>
-                    <FamilyMemories />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/profile"
-                element={
-                  <ProtectedRoute>
-                    <Profile />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/family-member/:memberId"
-                element={
-                  <ProtectedRoute>
-                    <MemberProfilePage />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/" element={<HomePage />} />
-              <Route path="/email-confirmation" element={<EmailConfirmation />} />
-            </Routes>
-          </main>
-        </div>
+          <div className="min-h-screen bg-gray-100">
+            <Navigation />
+            <main>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/claim-invite/:inviteToken" element={<ClaimInvite />} />
+                <Route
+                  path="/family-tree"
+                  element={
+                    <ProtectedRoute>
+                        <FamilyTree />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/memories"
+                  element={
+                    <ProtectedRoute>
+                        <FamilyMemories />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    <ProtectedRoute>
+                        <Profile />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/family-member/:memberId"
+                  element={
+                    <ProtectedRoute>
+                        <MemberProfilePage />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="/" element={<HomePage />} />
+                <Route path="/email-confirmation" element={<EmailConfirmation />} />
+              </Routes>
+            </main>
+          </div>
       </AuthProvider>
     </Router>
   );
