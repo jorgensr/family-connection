@@ -27,7 +27,7 @@ function LoginForm() {
     setLoading(true);
 
     try {
-      const success = await login(formData);
+      const success = await login(formData.email, formData.password);
       
       if (success) {
         // Check for stored redirect URL first
