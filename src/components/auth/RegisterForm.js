@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 function RegisterForm() {
   const { register, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState(null);
   const [formData, setFormData] = useState({
@@ -16,6 +17,17 @@ function RegisterForm() {
     birthDate: '',
     phone: ''
   });
+
+  // Check if this is part of a claim flow
+  const isClaiming = location.search.includes('claim=true');
+
+  useEffect(() => {
+    // If we have a pending invite and we're not in the claim flow, redirect
+    const pendingInvite = localStorage.getItem('pendingInviteToken');
+    if (pendingInvite && !isClaiming) {
+      navigate('/signup?claim=true');
+    }
+  }, [isClaiming, navigate]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -35,14 +47,28 @@ function RegisterForm() {
 
       if (success) {
         if (error?.includes('check your email')) {
+          // Store the redirect URL for after email confirmation
+          if (isClaiming) {
+            localStorage.setItem('postConfirmRedirect', '/claim-invite/' + localStorage.getItem('pendingInviteToken'));
+          }
+          
           // Show email confirmation message
-          setFormError('Please check your email to confirm your account before logging in.');
+          setFormError('Please check your email to confirm your account. You will be redirected to claim your profile after confirmation.');
           setTimeout(() => {
-            navigate('/login');
+            navigate('/login?claim=true');
           }, 3000);
         } else {
           // Direct login successful
-          navigate('/family-tree');
+          if (isClaiming) {
+            const inviteToken = localStorage.getItem('pendingInviteToken');
+            if (inviteToken) {
+              navigate('/claim-invite/' + inviteToken);
+            } else {
+              navigate('/family-tree');
+            }
+          } else {
+            navigate('/family-tree');
+          }
         }
       } else {
         setFormError('Registration failed. Please try again.');

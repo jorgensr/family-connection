@@ -1,20 +1,59 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 function LoginForm() {
-  const { login, error, loading } = useAuth();
+  const { login, error } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [loading, setLoading] = useState(false);
+  const [formError, setFormError] = useState(null);
   const [formData, setFormData] = useState({
     email: '',
     password: ''
   });
 
+  // Check for post-confirmation redirect
+  useEffect(() => {
+    const redirectUrl = localStorage.getItem('postConfirmRedirect');
+    if (redirectUrl) {
+      localStorage.removeItem('postConfirmRedirect'); // Clear it immediately
+    }
+  }, []);
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const success = await login(formData.email, formData.password);
-    if (success) {
-      navigate('/family-tree');
+    setFormError(null);
+    setLoading(true);
+
+    try {
+      const success = await login(formData);
+      
+      if (success) {
+        // Check for stored redirect URL first
+        const redirectUrl = localStorage.getItem('postConfirmRedirect');
+        if (redirectUrl) {
+          localStorage.removeItem('postConfirmRedirect');
+          navigate(redirectUrl);
+        } else if (location.search.includes('claim=true')) {
+          // Check for pending invite token
+          const inviteToken = localStorage.getItem('pendingInviteToken');
+          if (inviteToken) {
+            navigate('/claim-invite/' + inviteToken);
+          } else {
+            navigate('/family-tree');
+          }
+        } else {
+          navigate('/family-tree');
+        }
+      } else {
+        setFormError('Login failed. Please check your credentials.');
+      }
+    } catch (err) {
+      console.error('Login error:', err);
+      setFormError(err.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -22,9 +61,9 @@ function LoginForm() {
     <div className="max-w-md mx-auto bg-white p-8 rounded-lg shadow-md">
       <h2 className="text-2xl font-bold mb-6 text-center text-gray-800">Login</h2>
       
-      {error && (
+      {formError && (
         <div className="mb-4 p-2 bg-red-100 border border-red-400 text-red-700 rounded">
-          {error}
+          {formError}
         </div>
       )}
 

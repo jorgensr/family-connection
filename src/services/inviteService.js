@@ -77,4 +77,32 @@ const inviteService = {
   }
 };
 
+// Add this new function to update email sender
+export const updateEmailSender = async (senderEmail, senderName) => {
+  try {
+    const response = await fetch(`${process.env.REACT_APP_SUPABASE_URL}/auth/v1/config`, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${process.env.REACT_APP_SUPABASE_SERVICE_ROLE_KEY}`
+      },
+      body: JSON.stringify({
+        mailer_settings: {
+          sender_name: senderName,
+          sender_email: senderEmail
+        }
+      })
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update email sender settings');
+    }
+
+    return await response.json();
+  } catch (error) {
+    console.error('Error updating email sender:', error);
+    throw error;
+  }
+};
+
 export default inviteService; 

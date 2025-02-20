@@ -14,6 +14,22 @@ function ClaimInvite() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
+  // Store token in localStorage when component mounts with a token
+  useEffect(() => {
+    if (urlToken) {
+      localStorage.setItem('pendingInviteToken', urlToken);
+    }
+  }, [urlToken]);
+
+  // Check for stored token when user logs in
+  useEffect(() => {
+    const storedToken = localStorage.getItem('pendingInviteToken');
+    if (storedToken && user) {
+      handleClaim(null, storedToken);
+      localStorage.removeItem('pendingInviteToken');
+    }
+  }, [user]);
+
   const handleClaim = useCallback(async (e, tokenToUse = inviteToken) => {
     if (e) e.preventDefault();
     setError(null);
@@ -37,7 +53,7 @@ function ClaimInvite() {
       // Then update the member record
       await familyService.updateFamilyMemberByInviteToken(tokenToUse, user.id);
 
-      // Verify the claim was successful by checking the updated record
+      // Verify the claim was successful
       const { data: verifyClaimData, error: verifyError } = await supabase
         .from('family_members')
         .select('*, families(*)')
@@ -52,8 +68,9 @@ function ClaimInvite() {
 
       toast.success('Profile claimed successfully! Redirecting to your family tree...');
       
-      // Clear form
+      // Clear form and stored token
       setInviteToken('');
+      localStorage.removeItem('pendingInviteToken');
       
       // Redirect to family tree after successful claim
       setTimeout(() => {
@@ -67,24 +84,27 @@ function ClaimInvite() {
     }
   }, [user, inviteToken, navigate]);
 
-  useEffect(() => {
-    if (urlToken && user) {
-      handleClaim(null, urlToken);
-    }
-  }, [urlToken, user, handleClaim]);
-
   if (!user) {
     return (
       <div className="p-6 max-w-md mx-auto bg-white rounded shadow">
-        <div className="text-red-600 mb-4">
-          Please log in to claim your invite.
+        <div className="text-center space-y-4">
+          <h2 className="text-xl font-semibold">Welcome to Family Legacy Connection!</h2>
+          <p className="text-gray-600">To claim your profile, please create an account or sign in.</p>
+          <div className="space-x-4">
+            <button
+              onClick={() => navigate('/signup?claim=true')}
+              className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
+            >
+              Sign Up
+            </button>
+            <button
+              onClick={() => navigate('/login?claim=true')}
+              className="bg-gray-100 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Log In
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => navigate('/login')}
-          className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
-        >
-          Go to Login
-        </button>
       </div>
     );
   }
