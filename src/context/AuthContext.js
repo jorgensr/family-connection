@@ -74,14 +74,27 @@ export function AuthProvider({ children }) {
   const login = async (email, password) => {
     try {
       setError(null);
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log('Attempting login for:', email);
+      
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
       
-      if (error) throw error;
-      return true;
+      if (error) {
+        console.error('Login error:', error);
+        setError(error.message);
+        return false;
+      }
+
+      if (data?.user) {
+        console.log('Login successful for:', email);
+        return true;
+      }
+
+      return false;
     } catch (err) {
+      console.error('Unexpected login error:', err);
       setError(err.message);
       return false;
     }
