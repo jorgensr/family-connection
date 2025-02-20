@@ -92,7 +92,7 @@ function ClaimInvite() {
           <p className="text-gray-600">To claim your profile, please create an account or sign in.</p>
           <div className="space-x-4">
             <button
-              onClick={() => navigate('/signup?claim=true')}
+              onClick={() => navigate('/login?claim=true&tab=register')}
               className="bg-blue-500 text-white px-6 py-2 rounded-lg hover:bg-blue-600 transition-colors"
             >
               Sign Up
